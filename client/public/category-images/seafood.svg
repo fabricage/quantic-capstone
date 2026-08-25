@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Seafood category">
+  <rect width="128" height="128" rx="16" fill="#e6f3f8"/>
+  <path d="M22 64c18-22 40-28 62-22 10 3 18 8 24 14-6 6-14 11-24 14-22 6-44 0-62-22z" fill="#3d8ea8"/>
+  <path d="M96 56l18-16v40l-18-16z" fill="#2f6f86"/>
+  <circle cx="46" cy="58" r="4" fill="#f4fbff"/>
+</svg>

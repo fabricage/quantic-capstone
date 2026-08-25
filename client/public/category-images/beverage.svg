@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Beverage category">
+  <rect width="128" height="128" rx="16" fill="#eef7f2"/>
+  <path d="M44 30h40l-8 68H52z" fill="#7bc4a0"/>
+  <path d="M50 42h28l-2 16H52z" fill="#d7f3e6"/>
+  <rect x="50" y="98" width="28" height="8" rx="3" fill="#4e8f72"/>
+</svg>

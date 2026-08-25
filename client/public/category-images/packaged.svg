@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Packaged food category">
+  <rect width="128" height="128" rx="16" fill="#f3f1ea"/>
+  <rect x="30" y="38" width="68" height="56" rx="6" fill="#d8c49a"/>
+  <path d="M30 54h68" stroke="#b89b6a" stroke-width="4"/>
+  <rect x="48" y="62" width="32" height="18" rx="3" fill="#f7f1e2"/>
+</svg>

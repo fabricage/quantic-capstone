@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Dairy category">
+  <rect width="128" height="128" rx="16" fill="#eef6ff"/>
+  <path d="M48 28h32l8 18v58a10 10 0 0 1-10 10H50a10 10 0 0 1-10-10V46z" fill="#f4fbff" stroke="#6aa4d9" stroke-width="4"/>
+  <rect x="46" y="28" width="36" height="14" rx="3" fill="#8bbbe0"/>
+  <circle cx="64" cy="78" r="12" fill="#f7d36b"/>
+</svg>

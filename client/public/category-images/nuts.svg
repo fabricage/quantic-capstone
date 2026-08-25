@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Nuts category">
+  <rect width="128" height="128" rx="16" fill="#f8eedd"/>
+  <ellipse cx="64" cy="68" rx="28" ry="34" fill="#c9843a"/>
+  <ellipse cx="64" cy="68" rx="16" ry="22" fill="#e8c48a"/>
+  <path d="M64 34c6 10 6 18 0 28-6-10-6-18 0-28z" fill="#a86b2c"/>
+</svg>

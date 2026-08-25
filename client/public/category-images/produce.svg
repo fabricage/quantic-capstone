@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Produce category">
+  <rect width="128" height="128" rx="16" fill="#e8f6e8"/>
+  <circle cx="64" cy="74" r="28" fill="#e05d4f"/>
+  <path d="M64 46c12-18 28-16 28-16-8 14-16 16-28 16z" fill="#5da35d"/>
+  <path d="M64 48c0-16-8-24-18-28 12 8 18 18 18 28z" fill="#3f7d43"/>
+</svg>
