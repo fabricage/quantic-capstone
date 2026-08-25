@@ -1,6 +1,10 @@
 /**
  * api.js
  * Purpose: Browser → Express BFF helpers. The client never calls openFDA directly.
+ *
+ * Locally VITE_API_BASE_URL is empty, so requests stay same-origin and Vite proxies /api.
+ * Production builds set VITE_API_BASE_URL (no trailing slash) so apiUrl prefixes the
+ * Render API origin, e.g. https://recall-ledger-api.onrender.com/api/recalls.
  */
 
 export function getApiBase() {
