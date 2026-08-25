@@ -8,6 +8,7 @@ Search FDA **food** recalls by product or recalling firm. The React client talks
 - **Server:** Node 18+ (20 recommended) + Express (ES modules)
 - **Data:** [openFDA food enforcement](https://open.fda.gov/apis/food/enforcement/) (server-side only)
 - **Tests:** Vitest, React Testing Library, supertest
+- **CI:** GitHub Actions runs `npm ci` + `npm test` in `server/` and `client/` on every push to `main` and every pull request.
 
 ## Repository layout
 
