@@ -64,3 +64,12 @@ cd client && npm test
 
 - **BFF:** Browser → Express only. openFDA stays server-side (normalization, unified errors, no API keys in the client).
 - **Normalized recall shape:** `{ id, firm, product, reason, classification, status, state, recallDate, publishedDate, source, url, imageUrl, imageAlt, country, origin }`
+
+## Deploy (Render free tier)
+
+Full click-through guide: **[docs/DEPLOY_RENDER.md](docs/DEPLOY_RENDER.md)**  
+Blueprint file: [`render.yaml`](render.yaml) (API Web Service + client Static Site).
+
+**(me)** Dashboard: New → Blueprint → this repo. Wait for **recall-ledger-api** to go Live; copy its URL (no trailing slash). On **recall-ledger-web**, set `VITE_API_BASE_URL` to that URL → Clear build cache & deploy. On **recall-ledger-api**, set `CLIENT_ORIGIN` to the static site origin. Do not put API keys on the static site.
+
+Local client leaves `VITE_API_BASE_URL` empty (Vite proxies `/api`). Production builds need the absolute API origin.

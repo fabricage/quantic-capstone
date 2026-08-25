@@ -1,0 +1,52 @@
+# render.yaml
+# Purpose: Render Blueprint — Web Service (API) + Static Site (client).
+# Deploy: https://dashboard.render.com → New → Blueprint → connect this repo.
+#
+# Static site notes:
+# - Do NOT set `plan` on static sites (Render rejects it).
+# - With rootDir: client, staticPublishPath is relative to that folder → `dist`
+#   (not client/dist).
+# - Vite lives in devDependencies; production npm ci omits them, so the static
+#   build must use npm ci --include=dev or it dies with "vite: not found".
+
+services:
+  # --- Express BFF (openFDA proxy; AI key later) ---
+  - type: web
+    name: recall-ledger-api
+    runtime: node
+    plan: free
+    rootDir: server
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: AI_MODEL
+        value: claude-sonnet-4-20250514
+      # Paste the key in the Render dashboard for this service only (never commit it)
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      # Set to your Static Site origin after first deploy (no trailing slash)
+      - key: CLIENT_ORIGIN
+        sync: false
+
+  # --- Vite React static site ---
+  - type: web
+    name: recall-ledger-web
+    runtime: static
+    rootDir: client
+    # --include=dev: Vite/plugin-react are in devDependencies; production npm ci omits them
+    buildCommand: npm ci --include=dev && npm run build
+    # Relative to rootDir (client/), not the repo root
+    staticPublishPath: dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      # Set in dashboard to https://YOUR-API.onrender.com (no trailing slash), then Clear build cache & deploy
+      - key: VITE_API_BASE_URL
+        sync: false
