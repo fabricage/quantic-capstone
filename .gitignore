@@ -1,0 +1,31 @@
+# .gitignore
+# Purpose: Ignore dependencies, secrets, build output, and editor/OS noise.
+# Note: never ignore .env.example — that file is the committed template.
+
+# Dependencies
+node_modules/
+
+# Secrets (live values only; templates stay tracked)
+.env
+server/.env
+client/.env
+
+# Build + coverage
+dist/
+coverage/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.log
+
+# Editor / OS noise
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
