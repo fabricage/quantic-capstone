@@ -51,4 +51,19 @@ describe('App', () => {
     expect(requested.some((url) => url.includes('/api/recalls'))).toBe(true);
     expect(requested.some((url) => url.includes('api.fda.gov'))).toBe(false);
   });
+
+  it('shows an inline date-range error and does not hit the API', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<App />);
+    await user.type(screen.getByLabelText(/^from$/i), '2024-12-31');
+    await user.type(screen.getByLabelText(/^to$/i), '2024-01-01');
+    expect(screen.getByRole('alert')).toHaveTextContent(/start date must be on or before/i);
+
+    await user.type(screen.getByRole('searchbox'), 'milk');
+    await user.click(screen.getByRole('button', { name: /search/i }));
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 });

@@ -71,4 +71,36 @@ describe('RecallList', () => {
     expect(screen.getByText('Acme Foods')).toBeInTheDocument();
     expect(screen.getByText('Beta Co')).toBeInTheDocument();
   });
+
+  it('uses filters-active empty copy', () => {
+    render(
+      <RecallList
+        loading={false}
+        searchFailed={false}
+        hasSearched
+        query="milk"
+        results={[]}
+        filtersActive
+      />,
+    );
+    expect(screen.getByText(/no recalls match these filters/i)).toBeInTheDocument();
+    expect(screen.queryByText(/no results for this keyword/i)).not.toBeInTheDocument();
+  });
+
+  it('mentions an active date range on the count line', () => {
+    render(
+      <RecallList
+        loading={false}
+        searchFailed={false}
+        hasSearched
+        results={[sampleRecall]}
+        total={1}
+        dateFrom="2024-01-01"
+        dateTo="2024-06-30"
+      />,
+    );
+    expect(screen.getByText(/1 matching recall/i)).toHaveTextContent(
+      'initiation 2024-01-01 to 2024-06-30',
+    );
+  });
 });

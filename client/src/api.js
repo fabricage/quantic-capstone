@@ -23,13 +23,25 @@ export function apiUrl(path) {
  * Why: injectable fetchImpl lets tests stub the network without hitting Express.
  */
 export async function searchRecalls(
-  { q = '', limit = 20, skip = 0 } = {},
+  {
+    q = '',
+    limit = 20,
+    skip = 0,
+    classification = '',
+    status = '',
+    dateFrom = '',
+    dateTo = '',
+  } = {},
   fetchImpl = fetch,
 ) {
   const params = new URLSearchParams();
   if (q) params.set('q', q);
   params.set('limit', String(limit));
   params.set('skip', String(skip));
+  if (classification) params.set('classification', classification);
+  if (status) params.set('status', status);
+  if (dateFrom) params.set('dateFrom', dateFrom);
+  if (dateTo) params.set('dateTo', dateTo);
 
   const response = await fetchImpl(apiUrl(`/api/recalls?${params.toString()}`));
   if (!response.ok) {
