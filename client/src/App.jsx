@@ -95,8 +95,8 @@ export default function App() {
         results={results}
         total={total}
         filtersActive={hasActiveFilters(filters)}
-        dateFrom={filters.dateFrom}
-        dateTo={filters.dateTo}
+        dateFrom={dateRangeError ? '' : filters.dateFrom}
+        dateTo={dateRangeError ? '' : filters.dateTo}
       />
     </div>
   );
