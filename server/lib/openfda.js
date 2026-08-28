@@ -43,14 +43,70 @@ export function toOpenFdaDate(value) {
   return null;
 }
 
+const CLASSIFICATIONS = new Set(['Class I', 'Class II', 'Class III']);
+const STATUSES = new Set(['Ongoing', 'Completed', 'Terminated']);
+
+const OPEN_RANGE_START = '19000101';
+const OPEN_RANGE_END = '21000101';
+
 /**
- * Build the keyword search clause: product OR recalling firm.
- * Why: spaces around OR are required; empty q must not send a search param.
+ * Whitelist FDA classification. Unknown values are ignored (not searched).
  */
-export function buildSearchQuery({ q } = {}) {
+export function formatClassification(value) {
+  const raw = String(value ?? '').trim();
+  if (!CLASSIFICATIONS.has(raw)) return '';
+  return `classification:"${raw}"`;
+}
+
+/**
+ * Whitelist FDA recall status. Unknown values are ignored (not searched).
+ */
+export function formatStatus(value) {
+  const raw = String(value ?? '').trim();
+  if (!STATUSES.has(raw)) return '';
+  return `status:"${raw}"`;
+}
+
+/**
+ * Lucene range on recall_initiation_date.
+ * Why: open-ended ranges still need a far bound so the [from TO to] syntax stays valid.
+ */
+export function formatDateRange(dateFrom, dateTo) {
+  const from = toOpenFdaDate(dateFrom);
+  const to = toOpenFdaDate(dateTo);
+  if (!from && !to) return '';
+  if (from && to) {
+    return `recall_initiation_date:[${from} TO ${to}]`;
+  }
+  if (from) {
+    return `recall_initiation_date:[${from} TO ${OPEN_RANGE_END}]`;
+  }
+  return `recall_initiation_date:[${OPEN_RANGE_START} TO ${to}]`;
+}
+
+/**
+ * Build the search clause: keyword AND optional classification / status / date filters.
+ * Why: spaces around OR and AND are required; empty pieces must not appear in the string.
+ */
+export function buildSearchQuery({
+  q,
+  classification,
+  status,
+  dateFrom,
+  dateTo,
+} = {}) {
+  const clauses = [];
   const term = formatKeyword(q);
-  if (!term) return '';
-  return `(product_description:${term} OR recalling_firm:${term})`;
+  if (term) {
+    clauses.push(`(product_description:${term} OR recalling_firm:${term})`);
+  }
+  const classClause = formatClassification(classification);
+  if (classClause) clauses.push(classClause);
+  const statusClause = formatStatus(status);
+  if (statusClause) clauses.push(statusClause);
+  const dateClause = formatDateRange(dateFrom, dateTo);
+  if (dateClause) clauses.push(dateClause);
+  return clauses.join(' AND ');
 }
 
 function httpError(message, statusCode) {
@@ -66,7 +122,15 @@ function httpError(message, statusCode) {
  * 404 means "no matches" in openFDA, not a transport failure.
  */
 export async function fetchRecalls(
-  { q = '', limit = 10, skip = 0 } = {},
+  {
+    q = '',
+    limit = 10,
+    skip = 0,
+    classification = '',
+    status = '',
+    dateFrom = '',
+    dateTo = '',
+  } = {},
   fetchImpl = fetch,
 ) {
   const url = new URL(OPENFDA_BASE);
@@ -74,7 +138,13 @@ export async function fetchRecalls(
   url.searchParams.set('skip', String(skip));
   url.searchParams.set('sort', 'report_date:desc');
 
-  const search = buildSearchQuery({ q });
+  const search = buildSearchQuery({
+    q,
+    classification,
+    status,
+    dateFrom,
+    dateTo,
+  });
   if (search) {
     url.searchParams.set('search', search);
   }
