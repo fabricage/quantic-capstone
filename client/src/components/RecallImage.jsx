@@ -5,10 +5,10 @@
 import { useState } from 'react';
 import { categoryImageAlt, categoryImageSrc } from '../lib/categoryImage.js';
 
-export default function RecallImage({ recall }) {
+export default function RecallImage({ recall, className = 'recall-image' }) {
   const [hidden, setHidden] = useState(false);
 
-  // CPSC product photos arrive in Card 11; Card 1 only cues FDA food categories.
+  // CPSC product photos arrive in Card 12; food recalls use category SVGs.
   if (hidden || recall?.source !== 'food') return null;
 
   const src = recall.imageUrl || categoryImageSrc(recall.product);
@@ -16,7 +16,7 @@ export default function RecallImage({ recall }) {
 
   return (
     <img
-      className="recall-image"
+      className={className}
       src={src}
       alt={alt}
       onError={() => setHidden(true)}

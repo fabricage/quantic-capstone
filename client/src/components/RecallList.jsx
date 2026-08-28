@@ -22,6 +22,7 @@ export default function RecallList({
   filtersActive = false,
   dateFrom = '',
   dateTo = '',
+  onSelect,
 }) {
   if (loading) {
     return <StatusMessage>Loading recalls…</StatusMessage>;
@@ -66,7 +67,7 @@ export default function RecallList({
       <ul className="recall-list">
         {results.map((recall) => (
           <li key={recall.id || recall.product}>
-            <RecallCard recall={recall} />
+            <RecallCard recall={recall} onSelect={onSelect} />
           </li>
         ))}
       </ul>
