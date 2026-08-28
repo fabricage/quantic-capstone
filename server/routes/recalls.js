@@ -1,6 +1,6 @@
 /**
  * recalls.js
- * Purpose: GET /api/recalls — keyword search against openFDA via the BFF.
+ * Purpose: GET /api/recalls — keyword + classification/status/date filters against openFDA.
  */
 import { Router } from 'express';
 import { fetchRecalls } from '../lib/openfda.js';
@@ -28,11 +28,19 @@ export function createRecallsRouter({ fetchImpl = fetch } = {}) {
 
   router.get('/', async (req, res) => {
     const q = typeof req.query.q === 'string' ? req.query.q : '';
+    const classification =
+      typeof req.query.classification === 'string' ? req.query.classification : '';
+    const status = typeof req.query.status === 'string' ? req.query.status : '';
+    const dateFrom = typeof req.query.dateFrom === 'string' ? req.query.dateFrom : '';
+    const dateTo = typeof req.query.dateTo === 'string' ? req.query.dateTo : '';
     const limit = parseLimit(req.query.limit);
     const skip = parseSkip(req.query.skip);
 
     try {
-      const data = await fetchRecalls({ q, limit, skip }, fetchImpl);
+      const data = await fetchRecalls(
+        { q, classification, status, dateFrom, dateTo, limit, skip },
+        fetchImpl,
+      );
       return noStore(res).json({
         total: data.total,
         results: normalizeRecalls(data.results),

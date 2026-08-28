@@ -99,6 +99,24 @@ describe('GET /api/recalls', () => {
     });
   });
 
+  it('forwards classification, status, dateFrom, and dateTo into the openFDA search string', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(jsonResponse(200, sampleOpenFda()));
+    const app = createApp({ fetchImpl });
+
+    await request(app).get('/api/recalls').query({
+      q: 'milk',
+      classification: 'Class I',
+      status: 'Ongoing',
+      dateFrom: '2024-01-01',
+      dateTo: '2024-12-31',
+    });
+
+    const calledUrl = new URL(String(fetchImpl.mock.calls[0][0]));
+    expect(calledUrl.searchParams.get('search')).toBe(
+      '(product_description:milk OR recalling_firm:milk) AND classification:"Class I" AND status:"Ongoing" AND recall_initiation_date:[20240101 TO 20241231]',
+    );
+  });
+
   it('caps limit at 100', async () => {
     const fetchImpl = vi.fn().mockResolvedValue(
       jsonResponse(200, sampleOpenFda({ results: [], meta: { results: { total: 0 } } })),

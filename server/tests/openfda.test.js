@@ -43,4 +43,37 @@ describe('buildSearchQuery / formatKeyword', () => {
       '(product_description:"peanut butter" OR recalling_firm:"peanut butter")',
     );
   });
+
+  it('AND-joins keyword with classification, status, and date range', () => {
+    expect(
+      buildSearchQuery({
+        q: 'milk',
+        classification: 'Class I',
+        status: 'Ongoing',
+        dateFrom: '2024-01-01',
+        dateTo: '2024-06-30',
+      }),
+    ).toBe(
+      '(product_description:milk OR recalling_firm:milk) AND classification:"Class I" AND status:"Ongoing" AND recall_initiation_date:[20240101 TO 20240630]',
+    );
+  });
+
+  it('ignores unknown classification and status values', () => {
+    expect(
+      buildSearchQuery({
+        q: 'milk',
+        classification: 'Class IV',
+        status: 'Pending',
+      }),
+    ).toBe('(product_description:milk OR recalling_firm:milk)');
+  });
+
+  it('uses far bounds for open-ended date ranges', () => {
+    expect(buildSearchQuery({ dateFrom: '20240101' })).toBe(
+      'recall_initiation_date:[20240101 TO 21000101]',
+    );
+    expect(buildSearchQuery({ dateTo: '2024-06-30' })).toBe(
+      'recall_initiation_date:[19000101 TO 20240630]',
+    );
+  });
 });
