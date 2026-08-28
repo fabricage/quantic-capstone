@@ -1,15 +1,18 @@
 /**
  * App.jsx
- * Purpose: Keyword search plus classification/status/date filters via the Express BFF.
+ * Purpose: Search list plus an in-memory detail view of the selected recall.
  */
 import { useState } from 'react';
 import { searchRecalls } from './api.js';
 import FilterBar from './components/FilterBar.jsx';
+import RecallDetail from './components/RecallDetail.jsx';
 import RecallList from './components/RecallList.jsx';
 import SearchBar from './components/SearchBar.jsx';
 import { EMPTY_FILTERS, hasActiveFilters, isInvalidDateRange } from './lib/filters.js';
 
 export default function App() {
+  const [view, setView] = useState('search');
+  const [selected, setSelected] = useState(null);
   const [query, setQuery] = useState('');
   const [activeQuery, setActiveQuery] = useState('');
   const [filters, setFilters] = useState(EMPTY_FILTERS);
@@ -22,7 +25,6 @@ export default function App() {
   const dateRangeError = isInvalidDateRange(filters.dateFrom, filters.dateTo);
 
   async function fetchResults(trimmed, nextFilters) {
-    // Invalid ranges must not hit the API.
     if (isInvalidDateRange(nextFilters.dateFrom, nextFilters.dateTo)) {
       return;
     }
@@ -70,6 +72,20 @@ export default function App() {
     }
   }
 
+  function handleSelect(recall) {
+    setSelected(recall);
+    setView('detail');
+  }
+
+  function handleBack() {
+    setView('search');
+    setSelected(null);
+  }
+
+  function handleSave(_recall) {
+    // Card 7 fills this hook (bookmarks). No-op for now.
+  }
+
   return (
     <div className="app">
       <header className="app-header">
@@ -80,24 +96,30 @@ export default function App() {
         </p>
       </header>
 
-      <SearchBar query={query} onChange={setQuery} onSearch={handleSearch} />
-      <FilterBar
-        filters={filters}
-        onChange={handleFiltersChange}
-        dateRangeError={dateRangeError}
-      />
-
-      <RecallList
-        loading={loading}
-        searchFailed={searchFailed}
-        hasSearched={hasSearched}
-        query={activeQuery}
-        results={results}
-        total={total}
-        filtersActive={hasActiveFilters(filters)}
-        dateFrom={dateRangeError ? '' : filters.dateFrom}
-        dateTo={dateRangeError ? '' : filters.dateTo}
-      />
+      {view === 'detail' ? (
+        <RecallDetail recall={selected} onBack={handleBack} onSave={handleSave} />
+      ) : (
+        <>
+          <SearchBar query={query} onChange={setQuery} onSearch={handleSearch} />
+          <FilterBar
+            filters={filters}
+            onChange={handleFiltersChange}
+            dateRangeError={dateRangeError}
+          />
+          <RecallList
+            loading={loading}
+            searchFailed={searchFailed}
+            hasSearched={hasSearched}
+            query={activeQuery}
+            results={results}
+            total={total}
+            filtersActive={hasActiveFilters(filters)}
+            dateFrom={dateRangeError ? '' : filters.dateFrom}
+            dateTo={dateRangeError ? '' : filters.dateTo}
+            onSelect={handleSelect}
+          />
+        </>
+      )}
     </div>
   );
 }

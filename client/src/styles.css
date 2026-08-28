@@ -1,6 +1,6 @@
 /**
  * styles.css
- * Purpose: Search + filter row layout for FDA food recall cards. Kept simple on purpose.
+ * Purpose: Search, filters, and a readable recall detail layout.
  */
 
 :root {
@@ -211,4 +211,106 @@ body {
   font-family: system-ui, sans-serif;
   font-size: 0.92rem;
   color: var(--muted);
+}
+
+.recall-card[role='button'] {
+  cursor: pointer;
+  width: 100%;
+  font: inherit;
+  text-align: left;
+  color: inherit;
+}
+
+.recall-card[role='button']:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.recall-detail {
+  margin-top: 0.5rem;
+}
+
+.recall-detail-toolbar {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.recall-detail-back,
+.recall-detail-save {
+  font-family: system-ui, sans-serif;
+  font-weight: 600;
+  border-radius: 6px;
+  padding: 0.5rem 0.9rem;
+  cursor: pointer;
+}
+
+.recall-detail-back {
+  border: 1px solid var(--line);
+  background: var(--paper);
+}
+
+.recall-detail-save {
+  border: 0;
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.recall-detail-figure {
+  margin: 0 0 1rem;
+}
+
+.recall-detail-image {
+  width: 8rem;
+  height: 8rem;
+  object-fit: cover;
+  border-radius: 10px;
+  background: #eee;
+}
+
+.recall-detail-figure figcaption {
+  margin-top: 0.4rem;
+  font-family: system-ui, sans-serif;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.recall-detail-title {
+  margin: 0 0 0.75rem;
+  font-size: 1.35rem;
+}
+
+.recall-detail-fields {
+  display: grid;
+  gap: 0.65rem 1.25rem;
+  margin: 0 0 1.25rem;
+}
+
+.recall-detail-field {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.recall-detail-field dt {
+  font-family: system-ui, sans-serif;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.recall-detail-field dd {
+  margin: 0;
+}
+
+.recall-detail-reason-block h3 {
+  margin: 0 0 0.4rem;
+  font-size: 1rem;
+}
+
+.recall-detail-reason {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.55;
 }
