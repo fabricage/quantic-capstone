@@ -25,6 +25,8 @@ export default function RecallList({
   dateFrom = '',
   dateTo = '',
   onSelect,
+  isSaved,
+  onToggleSave,
 }) {
   if (loading) {
     return <StatusMessage>Loading recalls…</StatusMessage>;
@@ -69,7 +71,12 @@ export default function RecallList({
       <ul className="recall-list">
         {results.map((recall) => (
           <li key={recall.id || recall.product}>
-            <RecallCard recall={recall} onSelect={onSelect} />
+            <RecallCard
+              recall={recall}
+              onSelect={onSelect}
+              saved={Boolean(isSaved?.(recall.id))}
+              onToggleSave={onToggleSave}
+            />
           </li>
         ))}
       </ul>

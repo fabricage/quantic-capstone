@@ -6,7 +6,7 @@ import { formatRecallDate } from '../lib/dates.js';
 import { shortenProductTitle, shortenReason } from '../lib/textSnippets.js';
 import RecallImage from './RecallImage.jsx';
 
-export default function RecallCard({ recall, onSelect }) {
+export default function RecallCard({ recall, onSelect, saved = false, onToggleSave }) {
   const title = shortenProductTitle(recall.product);
   const reason = shortenReason(recall.reason);
 
@@ -20,6 +20,15 @@ export default function RecallCard({ recall, onSelect }) {
       event.preventDefault();
       activate();
     }
+  }
+
+  function handleSaveClick(event) {
+    event.stopPropagation();
+    onToggleSave?.(recall);
+  }
+
+  function handleSaveKeyDown(event) {
+    event.stopPropagation();
   }
 
   return (
@@ -41,6 +50,18 @@ export default function RecallCard({ recall, onSelect }) {
           <time dateTime={recall.recallDate}>{formatRecallDate(recall.recallDate)}</time>
         </p>
       </div>
+      {onToggleSave ? (
+        <button
+          type="button"
+          className="recall-card-save"
+          aria-pressed={saved}
+          aria-label={saved ? `Remove ${title} from saved` : `Save ${title}`}
+          onClick={handleSaveClick}
+          onKeyDown={handleSaveKeyDown}
+        >
+          {saved ? 'Saved' : 'Save'}
+        </button>
+      ) : null}
     </article>
   );
 }

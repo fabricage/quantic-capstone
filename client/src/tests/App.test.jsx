@@ -2,7 +2,7 @@
  * App.test.jsx
  * Purpose: Brand, BFF search, filter validation, and detail view with Escape.
  */
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import App from '../App.jsx';
@@ -16,6 +16,7 @@ vi.mock('../lib/scroll.js', () => ({
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.clearAllMocks();
+  localStorage.clear();
 });
 
 describe('App', () => {
@@ -50,7 +51,11 @@ describe('App', () => {
 
     render(<App />);
     await user.type(screen.getByRole('searchbox'), 'formula');
-    await user.click(screen.getByRole('button', { name: /search/i }));
+    await user.click(
+      within(screen.getByRole('searchbox').closest('form')).getByRole('button', {
+        name: /search/i,
+      }),
+    );
 
     expect(await screen.findByText('Acme Foods')).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalled();
@@ -70,7 +75,11 @@ describe('App', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(/start date must be on or before/i);
 
     await user.type(screen.getByRole('searchbox'), 'milk');
-    await user.click(screen.getByRole('button', { name: /search/i }));
+    await user.click(
+      within(screen.getByRole('searchbox').closest('form')).getByRole('button', {
+        name: /search/i,
+      }),
+    );
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -104,7 +113,11 @@ describe('App', () => {
 
     render(<App />);
     await user.type(screen.getByRole('searchbox'), 'formula');
-    await user.click(screen.getByRole('button', { name: /search/i }));
+    await user.click(
+      within(screen.getByRole('searchbox').closest('form')).getByRole('button', {
+        name: /search/i,
+      }),
+    );
     expect(await screen.findByText('Acme Foods')).toBeInTheDocument();
     expect(screen.queryByText(longReason)).not.toBeInTheDocument();
 
@@ -144,7 +157,11 @@ describe('App', () => {
 
     render(<App />);
     await user.type(screen.getByRole('searchbox'), 'cheese');
-    await user.click(screen.getByRole('button', { name: /search/i }));
+    await user.click(
+      within(screen.getByRole('searchbox').closest('form')).getByRole('button', {
+        name: /search/i,
+      }),
+    );
     expect(await screen.findByText('Dairy Co')).toBeInTheDocument();
     expect(scroll.scrollToResultsTop).not.toHaveBeenCalled();
 

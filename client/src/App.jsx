@@ -1,6 +1,6 @@
 /**
  * App.jsx
- * Purpose: Search, filters, detail, and skip/limit pagination of recall results.
+ * Purpose: Search, filters, detail, pagination, and localStorage bookmarks.
  */
 import { useEffect, useRef, useState } from 'react';
 import { searchRecalls } from './api.js';
@@ -8,7 +8,9 @@ import FilterBar from './components/FilterBar.jsx';
 import Pagination from './components/Pagination.jsx';
 import RecallDetail from './components/RecallDetail.jsx';
 import RecallList from './components/RecallList.jsx';
+import SavedRecalls from './components/SavedRecalls.jsx';
 import SearchBar from './components/SearchBar.jsx';
+import { useSavedRecalls } from './hooks/useSavedRecalls.js';
 import { EMPTY_FILTERS, hasActiveFilters, isInvalidDateRange } from './lib/filters.js';
 import {
   DEFAULT_PAGE_SIZE,
@@ -21,7 +23,9 @@ import { scrollToResultsTop } from './lib/scroll.js';
 
 export default function App() {
   const [view, setView] = useState('search');
+  const [returnView, setReturnView] = useState('search');
   const [selected, setSelected] = useState(null);
+  const { saved, isSaved, toggleSave } = useSavedRecalls();
   const [query, setQuery] = useState('');
   const [activeQuery, setActiveQuery] = useState('');
   const [filters, setFilters] = useState(EMPTY_FILTERS);
@@ -132,18 +136,28 @@ export default function App() {
   }
 
   function handleSelect(recall) {
+    setReturnView(view === 'saved' ? 'saved' : 'search');
     setSelected(recall);
     setView('detail');
   }
 
   function handleBack() {
+    setView(returnView);
+    setSelected(null);
+  }
+
+  function showSearch() {
     setView('search');
     setSelected(null);
   }
 
-  function handleSave(_recall) {
-    // Card 7 fills this hook (bookmarks). No-op for now.
+  function showSaved() {
+    setView('saved');
+    setSelected(null);
   }
+
+  const searchIsCurrent = view === 'search' || (view === 'detail' && returnView === 'search');
+  const savedIsCurrent = view === 'saved' || (view === 'detail' && returnView === 'saved');
 
   return (
     <div className="app">
@@ -153,10 +167,33 @@ export default function App() {
         <p className="lede">
           Search recent FDA food recalls by product or recalling firm.
         </p>
+        <nav className="app-nav" aria-label="Primary">
+          <button
+            type="button"
+            aria-current={searchIsCurrent ? 'page' : undefined}
+            onClick={showSearch}
+          >
+            Search
+          </button>
+          <button
+            type="button"
+            aria-current={savedIsCurrent ? 'page' : undefined}
+            onClick={showSaved}
+          >
+            Saved
+          </button>
+        </nav>
       </header>
 
       {view === 'detail' ? (
-        <RecallDetail recall={selected} onBack={handleBack} onSave={handleSave} />
+        <RecallDetail
+          recall={selected}
+          saved={Boolean(selected && isSaved(selected.id))}
+          onBack={handleBack}
+          onSave={toggleSave}
+        />
+      ) : view === 'saved' ? (
+        <SavedRecalls saved={saved} onSelect={handleSelect} onRemove={toggleSave} />
       ) : (
         <>
           <SearchBar query={query} onChange={setQuery} onSearch={handleSearch} />
@@ -179,6 +216,8 @@ export default function App() {
             dateFrom={dateRangeError ? '' : filters.dateFrom}
             dateTo={dateRangeError ? '' : filters.dateTo}
             onSelect={handleSelect}
+            isSaved={isSaved}
+            onToggleSave={toggleSave}
           />
           {hasSearched && !loading && !searchFailed ? (
             <Pagination
