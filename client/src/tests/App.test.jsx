@@ -80,7 +80,8 @@ describe('App', () => {
         name: /search/i,
       }),
     );
-    expect(fetchMock).not.toHaveBeenCalled();
+    const requested = fetchMock.mock.calls.map((call) => String(call[0]));
+    expect(requested.some((url) => url.includes('/api/recalls'))).toBe(false);
   });
 
   it('opens detail from a card and Escape returns to the same search', async () => {
@@ -123,7 +124,10 @@ describe('App', () => {
 
     await user.click(screen.getByRole('button', { name: /view details for infant formula/i }));
     expect(await screen.findByText(longReason)).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const recallCalls = fetchMock.mock.calls.filter((call) =>
+      String(call[0]).includes('/api/recalls'),
+    );
+    expect(recallCalls).toHaveLength(1);
 
     await user.keyboard('{Escape}');
     expect(screen.getByRole('searchbox')).toHaveValue('formula');
@@ -178,6 +182,9 @@ describe('App', () => {
     const user = userEvent.setup();
     const fetchMock = vi.fn().mockImplementation((url) => {
       const href = String(url);
+      if (href.includes('/api/personas')) {
+        return Promise.resolve({ ok: true, json: async () => ({ personas: [] }) });
+      }
       const isFormula = href.includes('q=formula');
       return Promise.resolve({
         ok: true,

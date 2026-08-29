@@ -1,11 +1,13 @@
 /**
  * index.js
- * Purpose: Express BFF entry — health check + /api/recalls. Browser never talks to openFDA.
+ * Purpose: Express BFF entry — health, recalls, personas, and persona ranking.
+ * Browser never talks to openFDA or Anthropic.
  */
 import 'dotenv/config';
 import cors from 'cors';
 import express from 'express';
 import { pathToFileURL } from 'node:url';
+import { createPersonaRankRouter, createPersonasRouter } from './routes/persona.js';
 import { createRecallsRouter } from './routes/recalls.js';
 
 /**
@@ -53,6 +55,8 @@ export function createApp({ fetchImpl = fetch } = {}) {
     res.json({ ok: true });
   });
   app.use('/api/recalls', createRecallsRouter({ fetchImpl }));
+  app.use('/api/personas', createPersonasRouter());
+  app.use('/api/persona-rank', createPersonaRankRouter({ fetchImpl }));
   return app;
 }
 

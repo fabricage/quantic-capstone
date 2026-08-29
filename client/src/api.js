@@ -56,3 +56,38 @@ export async function searchRecalls(
   }
   return response.json();
 }
+
+export async function fetchPersonas(fetchImpl = fetch) {
+  const response = await fetchImpl(apiUrl('/api/personas'));
+  if (!response.ok) {
+    throw new Error(`Request failed (${response.status})`);
+  }
+  return response.json();
+}
+
+/**
+ * Ask the BFF to rank recalls for a persona.
+ * Why: ranking is optional. A missing key, 4xx, or network error must not
+ * crash the UI — Card 10 will keep FDA order when fallback is true.
+ */
+export async function rankRecallsForPersona(body, fetchImpl = fetch) {
+  try {
+    const response = await fetchImpl(apiUrl('/api/persona-rank'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body ?? {}),
+    });
+    let data;
+    try {
+      data = await response.json();
+    } catch {
+      return { fallback: true };
+    }
+    if (!response.ok || data?.fallback) {
+      return { fallback: true, error: data?.error };
+    }
+    return data;
+  } catch {
+    return { fallback: true };
+  }
+}
