@@ -2,7 +2,7 @@
  * App.jsx
  * Purpose: Search, filters, detail, and skip/limit pagination of recall results.
  */
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { searchRecalls } from './api.js';
 import FilterBar from './components/FilterBar.jsx';
 import Pagination from './components/Pagination.jsx';
@@ -32,9 +32,21 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [searchFailed, setSearchFailed] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+  const pendingScrollRef = useRef(false);
 
   const dateRangeError = isInvalidDateRange(filters.dateFrom, filters.dateTo);
   const range = resultRange(page, pageSize, total);
+
+  // Scroll after the new page paints. Doing it in the click handler is too
+  // early: loading replaces the long list with a short message, then the new
+  // cards grow back and leave the user on the footer. The sentinel is a small
+  // node at the top — wrapping the whole list made scrollIntoView a no-op
+  // because that huge box was already intersecting the viewport.
+  useEffect(() => {
+    if (loading || !pendingScrollRef.current) return;
+    pendingScrollRef.current = false;
+    scrollToResultsTop();
+  }, [loading, results, page]);
 
   async function fetchResults(trimmed, nextFilters, nextPage = 1, nextSize = pageSize) {
     if (isInvalidDateRange(nextFilters.dateFrom, nextFilters.dateTo)) {
@@ -107,16 +119,16 @@ export default function App() {
   function handlePageChange(nextPage) {
     const clamped = clampPage(nextPage, total, pageSize);
     setPage(clamped);
+    pendingScrollRef.current = true;
     fetchResults(activeQuery, filters, clamped, pageSize);
-    scrollToResultsTop();
   }
 
   function handlePageSizeChange(nextSize) {
     const size = normalizePageSize(nextSize);
     setPageSize(size);
     setPage(1);
+    pendingScrollRef.current = true;
     fetchResults(activeQuery, filters, 1, size);
-    scrollToResultsTop();
   }
 
   function handleSelect(recall) {
@@ -153,22 +165,21 @@ export default function App() {
             onChange={handleFiltersChange}
             dateRangeError={dateRangeError}
           />
-          <div data-results-top>
-            <RecallList
-              loading={loading}
-              searchFailed={searchFailed}
-              hasSearched={hasSearched}
-              query={activeQuery}
-              results={results}
-              total={total}
-              rangeStart={range.start}
-              rangeEnd={range.end}
-              filtersActive={hasActiveFilters(filters)}
-              dateFrom={dateRangeError ? '' : filters.dateFrom}
-              dateTo={dateRangeError ? '' : filters.dateTo}
-              onSelect={handleSelect}
-            />
-          </div>
+          <div className="results-top-sentinel" data-results-top />
+          <RecallList
+            loading={loading}
+            searchFailed={searchFailed}
+            hasSearched={hasSearched}
+            query={activeQuery}
+            results={results}
+            total={total}
+            rangeStart={range.start}
+            rangeEnd={range.end}
+            filtersActive={hasActiveFilters(filters)}
+            dateFrom={dateRangeError ? '' : filters.dateFrom}
+            dateTo={dateRangeError ? '' : filters.dateTo}
+            onSelect={handleSelect}
+          />
           {hasSearched && !loading && !searchFailed ? (
             <Pagination
               page={page}

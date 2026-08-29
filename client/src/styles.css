@@ -206,6 +206,10 @@ body {
   font-size: 0.92rem;
 }
 
+.results-top-sentinel {
+  scroll-margin-top: 0.75rem;
+}
+
 .result-count {
   margin: 0 0 0.75rem;
   font-family: system-ui, sans-serif;

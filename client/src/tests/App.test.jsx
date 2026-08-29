@@ -2,7 +2,7 @@
  * App.test.jsx
  * Purpose: Brand, BFF search, filter validation, and detail view with Escape.
  */
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import App from '../App.jsx';
@@ -146,9 +146,12 @@ describe('App', () => {
     await user.type(screen.getByRole('searchbox'), 'cheese');
     await user.click(screen.getByRole('button', { name: /search/i }));
     expect(await screen.findByText('Dairy Co')).toBeInTheDocument();
+    expect(scroll.scrollToResultsTop).not.toHaveBeenCalled();
 
     await user.click(screen.getByRole('button', { name: /next/i }));
-    expect(scroll.scrollToResultsTop).toHaveBeenCalled();
+    await waitFor(() => {
+      expect(scroll.scrollToResultsTop).toHaveBeenCalled();
+    });
     const urls = fetchMock.mock.calls.map((call) => String(call[0]));
     expect(urls.some((url) => url.includes('skip=20'))).toBe(true);
     expect(urls.some((url) => url.includes('api.fda.gov'))).toBe(false);
