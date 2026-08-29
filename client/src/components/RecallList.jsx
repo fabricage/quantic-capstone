@@ -19,6 +19,8 @@ export default function RecallList({
   query,
   results,
   total = 0,
+  rangeStart = 0,
+  rangeEnd = 0,
   filtersActive = false,
   dateFrom = '',
   dateTo = '',
@@ -61,7 +63,7 @@ export default function RecallList({
   return (
     <>
       <p className="result-count">
-        {total} matching {total === 1 ? 'recall' : 'recalls'}
+        Showing {rangeStart}–{rangeEnd} of {total}
         {dateRangeLabel(dateFrom, dateTo)}
       </p>
       <ul className="recall-list">

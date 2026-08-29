@@ -2,13 +2,20 @@
  * App.test.jsx
  * Purpose: Brand, BFF search, filter validation, and detail view with Escape.
  */
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import App from '../App.jsx';
+import * as scroll from '../lib/scroll.js';
+
+vi.mock('../lib/scroll.js', () => ({
+  scrollElementIntoView: vi.fn(),
+  scrollToResultsTop: vi.fn(),
+}));
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.clearAllMocks();
 });
 
 describe('App', () => {
@@ -109,5 +116,44 @@ describe('App', () => {
     expect(screen.getByRole('searchbox')).toHaveValue('formula');
     expect(screen.getByText('Acme Foods')).toBeInTheDocument();
     expect(screen.queryByText(longReason)).not.toBeInTheDocument();
+  });
+
+  it('scrolls results to the top and fetches skip on page change', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        total: 45,
+        source: 'food',
+        results: [
+          {
+            id: 'F-2',
+            firm: 'Dairy Co',
+            product: 'Cheddar cheese',
+            reason: 'Listeria',
+            classification: 'Class I',
+            recallDate: '20240115',
+            source: 'food',
+            imageUrl: '',
+            imageAlt: '',
+          },
+        ],
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<App />);
+    await user.type(screen.getByRole('searchbox'), 'cheese');
+    await user.click(screen.getByRole('button', { name: /search/i }));
+    expect(await screen.findByText('Dairy Co')).toBeInTheDocument();
+    expect(scroll.scrollToResultsTop).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole('button', { name: /next/i }));
+    await waitFor(() => {
+      expect(scroll.scrollToResultsTop).toHaveBeenCalled();
+    });
+    const urls = fetchMock.mock.calls.map((call) => String(call[0]));
+    expect(urls.some((url) => url.includes('skip=20'))).toBe(true);
+    expect(urls.some((url) => url.includes('api.fda.gov'))).toBe(false);
   });
 });
