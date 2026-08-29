@@ -17,6 +17,7 @@ import {
   pageToSkip,
   resultRange,
 } from './lib/pagination.js';
+import { scrollToResultsTop } from './lib/scroll.js';
 
 export default function App() {
   const [view, setView] = useState('search');
@@ -107,6 +108,7 @@ export default function App() {
     const clamped = clampPage(nextPage, total, pageSize);
     setPage(clamped);
     fetchResults(activeQuery, filters, clamped, pageSize);
+    scrollToResultsTop();
   }
 
   function handlePageSizeChange(nextSize) {
@@ -114,6 +116,7 @@ export default function App() {
     setPageSize(size);
     setPage(1);
     fetchResults(activeQuery, filters, 1, size);
+    scrollToResultsTop();
   }
 
   function handleSelect(recall) {
