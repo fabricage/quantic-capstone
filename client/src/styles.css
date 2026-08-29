@@ -1,6 +1,6 @@
 /**
  * styles.css
- * Purpose: Search, filters, pagination, bookmarks, and a readable detail layout.
+ * Purpose: Search, filters, pagination, bookmarks, recent chips, and a readable detail layout.
  */
 
 :root {
@@ -101,6 +101,57 @@ body {
   gap: 0.5rem;
 }
 
+.recent-search-chips {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.recent-search-chips-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-family: system-ui, sans-serif;
+  font-size: 0.85rem;
+}
+
+.recent-search-chips-header p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.recent-search-chips-header button {
+  font: inherit;
+  font-weight: 600;
+  border: 0;
+  padding: 0;
+  background: none;
+  color: var(--accent);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.recent-search-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.recent-search-chip-list button {
+  font-family: system-ui, sans-serif;
+  font-size: 0.88rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.25rem 0.7rem;
+  background: var(--paper);
+  color: var(--ink);
+  cursor: pointer;
+}
+
 .search-bar input {
   flex: 1;
   padding: 0.7rem 0.8rem;
@@ -110,7 +161,7 @@ body {
   background: var(--paper);
 }
 
-.search-bar button {
+.search-bar-row button {
   font-family: system-ui, sans-serif;
   font-weight: 600;
   border: 0;

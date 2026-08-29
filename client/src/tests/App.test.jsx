@@ -1,6 +1,6 @@
 /**
  * App.test.jsx
- * Purpose: Brand, BFF search, filter validation, and detail view with Escape.
+ * Purpose: Brand, BFF search, filters, detail, pagination, and recent chips.
  */
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -172,5 +172,59 @@ describe('App', () => {
     const urls = fetchMock.mock.calls.map((call) => String(call[0]));
     expect(urls.some((url) => url.includes('skip=20'))).toBe(true);
     expect(urls.some((url) => url.includes('api.fda.gov'))).toBe(false);
+  });
+
+  it('turns successful searches into chips that re-run the query', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn().mockImplementation((url) => {
+      const href = String(url);
+      const isFormula = href.includes('q=formula');
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({
+          total: 1,
+          source: 'food',
+          results: [
+            {
+              id: isFormula ? 'F-formula' : 'F-cheese',
+              firm: isFormula ? 'Formula Co' : 'Dairy Co',
+              product: isFormula ? 'Infant formula' : 'Cheddar cheese',
+              reason: 'Listeria',
+              classification: 'Class I',
+              recallDate: '20240115',
+              source: 'food',
+              imageUrl: '',
+              imageAlt: '',
+            },
+          ],
+        }),
+      });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<App />);
+    await user.type(screen.getByRole('searchbox'), 'formula');
+    await user.click(
+      within(screen.getByRole('searchbox').closest('form')).getByRole('button', {
+        name: /search/i,
+      }),
+    );
+    expect(await screen.findByText('Formula Co')).toBeInTheDocument();
+
+    await user.clear(screen.getByRole('searchbox'));
+    await user.type(screen.getByRole('searchbox'), 'cheese');
+    await user.click(
+      within(screen.getByRole('searchbox').closest('form')).getByRole('button', {
+        name: /search/i,
+      }),
+    );
+    expect(await screen.findByText('Dairy Co')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'formula' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'cheese' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'formula' }));
+    expect(await screen.findByText('Formula Co')).toBeInTheDocument();
+    const urls = fetchMock.mock.calls.map((call) => String(call[0]));
+    expect(urls.filter((url) => url.includes('q=formula')).length).toBeGreaterThanOrEqual(2);
   });
 });
