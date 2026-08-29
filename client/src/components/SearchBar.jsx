@@ -1,6 +1,6 @@
 /**
  * SearchBar.jsx
- * Purpose: Labeled keyword form. Children slot sits between the label and input (chips in later cards).
+ * Purpose: Labeled keyword form. Children slot sits between the label and input (recent chips).
  */
 export default function SearchBar({ query = '', onChange, onSearch, children }) {
   function handleSubmit(event) {

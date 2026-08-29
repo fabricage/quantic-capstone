@@ -1,15 +1,17 @@
 /**
  * App.jsx
- * Purpose: Search, filters, detail, pagination, and localStorage bookmarks.
+ * Purpose: Search, filters, detail, pagination, bookmarks, and recent chips.
  */
 import { useEffect, useRef, useState } from 'react';
 import { searchRecalls } from './api.js';
 import FilterBar from './components/FilterBar.jsx';
 import Pagination from './components/Pagination.jsx';
+import RecentSearchChips from './components/RecentSearchChips.jsx';
 import RecallDetail from './components/RecallDetail.jsx';
 import RecallList from './components/RecallList.jsx';
 import SavedRecalls from './components/SavedRecalls.jsx';
 import SearchBar from './components/SearchBar.jsx';
+import { normalizeSearchQuery, useRecentSearches } from './hooks/useRecentSearches.js';
 import { useSavedRecalls } from './hooks/useSavedRecalls.js';
 import { EMPTY_FILTERS, hasActiveFilters, isInvalidDateRange } from './lib/filters.js';
 import {
@@ -26,6 +28,7 @@ export default function App() {
   const [returnView, setReturnView] = useState('search');
   const [selected, setSelected] = useState(null);
   const { saved, isSaved, toggleSave } = useSavedRecalls();
+  const { recent, rememberSearch, clearRecent } = useRecentSearches();
   const [query, setQuery] = useState('');
   const [activeQuery, setActiveQuery] = useState('');
   const [filters, setFilters] = useState(EMPTY_FILTERS);
@@ -89,24 +92,33 @@ export default function App() {
       setPageSize(size);
       setResults(Array.isArray(data.results) ? data.results : []);
       setTotal(data.total ?? totalCount);
+      return true;
     } catch {
       setSearchFailed(true);
       setResults([]);
       setTotal(0);
+      return false;
     } finally {
       setLoading(false);
     }
   }
 
-  function handleSearch(trimmed) {
-    setQuery(trimmed);
-    setActiveQuery(trimmed);
+  async function handleSearch(trimmed) {
+    const q = normalizeSearchQuery(trimmed);
+    setQuery(q);
+    setActiveQuery(q);
     if (isInvalidDateRange(filters.dateFrom, filters.dateTo)) {
       return;
     }
     setHasSearched(true);
     setPage(1);
-    fetchResults(trimmed, filters, 1, pageSize);
+    const ok = await fetchResults(q, filters, 1, pageSize);
+    if (ok) rememberSearch(q);
+  }
+
+  function handleRecentSearch(query) {
+    // A firm chip is just q=<firm phrase>. openFDA already ORs recalling_firm.
+    handleSearch(query);
   }
 
   function handleFiltersChange(nextFilters) {
@@ -196,7 +208,13 @@ export default function App() {
         <SavedRecalls saved={saved} onSelect={handleSelect} onRemove={toggleSave} />
       ) : (
         <>
-          <SearchBar query={query} onChange={setQuery} onSearch={handleSearch} />
+          <SearchBar query={query} onChange={setQuery} onSearch={handleSearch}>
+            <RecentSearchChips
+              searches={recent}
+              onSelect={handleRecentSearch}
+              onClear={clearRecent}
+            />
+          </SearchBar>
           <FilterBar
             filters={filters}
             onChange={handleFiltersChange}
