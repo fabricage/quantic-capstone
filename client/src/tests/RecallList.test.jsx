@@ -95,12 +95,29 @@ describe('RecallList', () => {
         hasSearched
         results={[sampleRecall]}
         total={1}
+        rangeStart={1}
+        rangeEnd={1}
         dateFrom="2024-01-01"
         dateTo="2024-06-30"
       />,
     );
-    expect(screen.getByText(/1 matching recall/i)).toHaveTextContent(
+    expect(screen.getByText(/showing 1–1 of 1/i)).toHaveTextContent(
       'initiation 2024-01-01 to 2024-06-30',
     );
+  });
+
+  it('shows Showing X–Y of Z', () => {
+    render(
+      <RecallList
+        loading={false}
+        searchFailed={false}
+        hasSearched
+        results={[sampleRecall]}
+        total={1673}
+        rangeStart={21}
+        rangeEnd={40}
+      />,
+    );
+    expect(screen.getByText('Showing 21–40 of 1673')).toBeInTheDocument();
   });
 });

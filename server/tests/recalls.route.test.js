@@ -129,4 +129,21 @@ describe('GET /api/recalls', () => {
     expect(calledUrl).toMatch(/[?&]limit=100(?:&|$)/);
     expect(calledUrl).not.toMatch(/limit=999/);
   });
+
+  it('forwards skip and limit together with filters', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(jsonResponse(200, sampleOpenFda()));
+    const app = createApp({ fetchImpl });
+
+    await request(app).get('/api/recalls').query({
+      q: 'cheese',
+      classification: 'Class I',
+      skip: 20,
+      limit: 20,
+    });
+
+    const calledUrl = new URL(String(fetchImpl.mock.calls[0][0]));
+    expect(calledUrl.searchParams.get('skip')).toBe('20');
+    expect(calledUrl.searchParams.get('limit')).toBe('20');
+    expect(calledUrl.searchParams.get('search')).toContain('classification:"Class I"');
+  });
 });
