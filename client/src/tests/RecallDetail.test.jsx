@@ -43,8 +43,16 @@ describe('RecallDetail', () => {
     render(<RecallDetail recall={fullRecall} onBack={onBack} onSave={onSave} />);
     await user.click(screen.getByRole('button', { name: /back/i }));
     expect(onBack).toHaveBeenCalledTimes(1);
-    await user.click(screen.getByRole('button', { name: /save/i }));
+    await user.click(screen.getByRole('button', { name: /^save$/i }));
     expect(onSave).toHaveBeenCalledWith(fullRecall);
+  });
+
+  it('shows Saved when the recall is already bookmarked', () => {
+    render(<RecallDetail recall={fullRecall} saved onBack={() => {}} onSave={() => {}} />);
+    expect(screen.getByRole('button', { name: /^saved$/i })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
   });
 
   it('closes on Escape', async () => {

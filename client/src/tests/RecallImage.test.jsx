@@ -29,4 +29,9 @@ describe('RecallImage', () => {
     );
     expect(container.querySelector('img')).toBeNull();
   });
+
+  it('shows a category image for a bookmark stub without source', () => {
+    render(<RecallImage recall={{ product: 'Infant formula powder' }} />);
+    expect(screen.getByRole('img')).toHaveAttribute('src', '/category-images/formula.svg');
+  });
 });

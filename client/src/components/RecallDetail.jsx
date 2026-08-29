@@ -31,7 +31,7 @@ function Field({ label, value }) {
   );
 }
 
-export default function RecallDetail({ recall, onBack, onSave }) {
+export default function RecallDetail({ recall, onBack, onSave, saved = false }) {
   useEffect(() => {
     function handleKeyDown(event) {
       if (event.key === 'Escape') onBack();
@@ -63,8 +63,13 @@ export default function RecallDetail({ recall, onBack, onSave }) {
         <button type="button" className="recall-detail-back" onClick={onBack}>
           Back
         </button>
-        <button type="button" className="recall-detail-save" onClick={() => onSave(recall)}>
-          Save
+        <button
+          type="button"
+          className="recall-detail-save"
+          aria-pressed={saved}
+          onClick={() => onSave(recall)}
+        >
+          {saved ? 'Saved' : 'Save'}
         </button>
       </div>
 
