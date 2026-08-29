@@ -1,11 +1,12 @@
 /**
  * App.jsx
- * Purpose: Search, filters, detail, pagination, bookmarks, and recent chips.
+ * Purpose: Search, filters, detail, pagination, bookmarks, chips, and persona cards.
  */
 import { useEffect, useRef, useState } from 'react';
-import { searchRecalls } from './api.js';
+import { searchRecalls, fetchPersonas } from './api.js';
 import FilterBar from './components/FilterBar.jsx';
 import Pagination from './components/Pagination.jsx';
+import PersonaCards from './components/PersonaCards.jsx';
 import RecentSearchChips from './components/RecentSearchChips.jsx';
 import RecallDetail from './components/RecallDetail.jsx';
 import RecallList from './components/RecallList.jsx';
@@ -39,7 +40,17 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [searchFailed, setSearchFailed] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+  const [personas, setPersonas] = useState([]);
+  const [personaId, setPersonaId] = useState('');
   const pendingScrollRef = useRef(false);
+
+  useEffect(() => {
+    fetchPersonas()
+      .then((data) => setPersonas(Array.isArray(data.personas) ? data.personas : []))
+      .catch(() => {
+        setPersonas([]);
+      });
+  }, []);
 
   const dateRangeError = isInvalidDateRange(filters.dateFrom, filters.dateTo);
   const range = resultRange(page, pageSize, total);
@@ -219,6 +230,11 @@ export default function App() {
             filters={filters}
             onChange={handleFiltersChange}
             dateRangeError={dateRangeError}
+          />
+          <PersonaCards
+            personas={personas}
+            selectedId={personaId}
+            onSelect={setPersonaId}
           />
           <div className="results-top-sentinel" data-results-top />
           <RecallList
