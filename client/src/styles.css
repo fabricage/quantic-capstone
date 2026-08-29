@@ -140,9 +140,10 @@ body {
 
 .recall-card {
   display: grid;
-  grid-template-columns: 4.5rem 1fr auto;
+  grid-template-columns: 4.5rem minmax(0, 1fr) auto;
   gap: 0.9rem;
   padding: 0.9rem;
+  width: 100%;
   background: var(--paper);
   border: 1px solid var(--line);
   border-radius: 10px;
@@ -334,6 +335,7 @@ body {
 .saved-recall-item {
   display: grid;
   gap: 0.5rem;
+  width: 100%;
 }
 
 .recall-card[role='button'] {

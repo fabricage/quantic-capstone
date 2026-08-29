@@ -40,7 +40,9 @@ export default function RecallCard({ recall, onSelect, saved = false, onToggleSa
       onKeyDown={handleKeyDown}
       aria-label={onSelect ? `View details for ${title}` : undefined}
     >
-      <RecallImage recall={recall} />
+      <div className="recall-card-media">
+        <RecallImage recall={recall} />
+      </div>
       <div className="recall-card-body">
         <h2 className="recall-card-title">{title}</h2>
         <p className="recall-card-firm">{recall.firm}</p>

@@ -8,8 +8,9 @@ import { categoryImageAlt, categoryImageSrc } from '../lib/categoryImage.js';
 export default function RecallImage({ recall, className = 'recall-image' }) {
   const [hidden, setHidden] = useState(false);
 
-  // CPSC product photos arrive in Card 12; food recalls use category SVGs.
-  if (hidden || recall?.source !== 'food') return null;
+  // CPSC product photos arrive in Card 12; food (and bookmark stubs) use category SVGs.
+  if (hidden) return null;
+  if (recall?.source && recall.source !== 'food') return null;
 
   const src = recall.imageUrl || categoryImageSrc(recall.product);
   const alt = recall.imageAlt || categoryImageAlt(recall.product);
