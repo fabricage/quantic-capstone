@@ -70,6 +70,25 @@ export function formatStatus(value) {
 }
 
 /**
+ * Category is a Lucene OR across product + reason, not the firm name.
+ * Why: "Dairy Co" as a recalling firm should not pull a produce recall into Dairy.
+ * Exclude terms (juice on Produce) are AND NOT so apple juice stays a beverage.
+ */
+export function formatCategoryClause(category) {
+  const keywords = Array.isArray(category?.keywords) ? category.keywords : [];
+  const terms = keywords.map((word) => formatKeyword(word)).filter(Boolean);
+  if (!terms.length) return '';
+  const or = terms.join(' OR ');
+  const include = `(product_description:(${or}) OR reason_for_recall:(${or}))`;
+  const excludes = Array.isArray(category?.exclude)
+    ? category.exclude.map((word) => formatKeyword(word)).filter(Boolean)
+    : [];
+  if (!excludes.length) return include;
+  const notOr = excludes.join(' OR ');
+  return `(${include} AND NOT (product_description:(${notOr}) OR reason_for_recall:(${notOr})))`;
+}
+
+/**
  * Lucene range on recall_initiation_date.
  * Why: open-ended ranges still need a far bound so the [from TO to] syntax stays valid.
  */
@@ -97,6 +116,7 @@ export function buildSearchQuery({
   dateFrom,
   dateTo,
   location,
+  category,
 } = {}) {
   const clauses = [];
   const term = formatKeyword(q);
@@ -111,6 +131,8 @@ export function buildSearchQuery({
   if (dateClause) clauses.push(dateClause);
   const countryClause = fdaCountrySearchClause(location);
   if (countryClause) clauses.push(countryClause);
+  const categoryClause = formatCategoryClause(category);
+  if (categoryClause) clauses.push(categoryClause);
   return clauses.join(' AND ');
 }
 
@@ -170,6 +192,7 @@ export async function fetchRecalls(
     dateFrom = '',
     dateTo = '',
     location = '',
+    category = null,
   } = {},
   fetchImpl = fetch,
 ) {
@@ -185,6 +208,7 @@ export async function fetchRecalls(
     dateFrom,
     dateTo,
     location,
+    category,
   });
   if (search) {
     url.searchParams.set('search', search);

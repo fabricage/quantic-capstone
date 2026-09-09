@@ -37,6 +37,7 @@ export async function searchRecalls(
     dateTo = '',
     source = '',
     location = '',
+    category = '',
   } = {},
   fetchImpl = fetch,
 ) {
@@ -50,6 +51,7 @@ export async function searchRecalls(
   if (dateTo) params.set('dateTo', dateTo);
   if (source) params.set('source', source);
   if (location) params.set('location', location);
+  if (category) params.set('category', category);
 
   try {
     const response = await fetchImpl(apiUrl(`/api/recalls?${params.toString()}`));
@@ -101,5 +103,18 @@ export async function fetchSuggestedSearches(fetchOrOptions = fetch) {
     };
   } catch {
     return EMPTY_SUGGESTED_SEARCHES;
+  }
+}
+
+export async function fetchCategories(fetchImpl = fetch) {
+  try {
+    const response = await fetchImpl(apiUrl('/api/categories'));
+    if (!response?.ok) return { categories: [] };
+    const data = await response.json();
+    return {
+      categories: Array.isArray(data?.categories) ? data.categories : [],
+    };
+  } catch {
+    return { categories: [] };
   }
 }

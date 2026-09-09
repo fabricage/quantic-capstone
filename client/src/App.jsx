@@ -1,10 +1,12 @@
 /**
  * App.jsx
- * Purpose: Browse-first home — company chips on top, then the paged latest
- * list with search, filters, detail, pagination, bookmarks, and a static FAQ.
+ * Purpose: Browse-first home — company chips on top, then source, keyword
+ * categories, and the paged latest list with search, filters, detail,
+ * pagination, bookmarks, and a static FAQ.
  */
 import { useEffect, useRef, useState } from 'react';
-import { fetchSuggestedSearches, searchRecalls } from './api.js';
+import { fetchCategories, fetchSuggestedSearches, searchRecalls } from './api.js';
+import CategoryChips from './components/CategoryChips.jsx';
 import FilterBar from './components/FilterBar.jsx';
 import Pagination from './components/Pagination.jsx';
 import RecentSearchChips from './components/RecentSearchChips.jsx';
@@ -30,10 +32,35 @@ import { DEFAULT_LOOKBACK_WINDOW, LOOKBACK_WINDOWS } from './lib/suggestedChips.
 
 const DEFAULT_SOURCE = 'all';
 
-function sourceLede(source) {
-  if (source === 'consumer') return 'Newest first. CPSC consumer products.';
-  if (source === 'food') return 'Newest first. FDA food.';
-  return 'Newest first, alternating one FDA food recall with one CPSC consumer product.';
+function sourceLede(source, categoryLabel, categorySources) {
+  const only = Array.isArray(categorySources) && categorySources.length === 1
+    ? categorySources[0]
+    : '';
+  const effective = only || source;
+  let line = 'Newest first, alternating one FDA food recall with one CPSC consumer product.';
+  if (effective === 'consumer') line = 'Newest first. CPSC consumer products.';
+  if (effective === 'food') line = 'Newest first. FDA food.';
+  if (categoryLabel) return `${line} Showing ${categoryLabel}.`;
+  return line;
+}
+
+// A Food-only chip on Consumer (or the reverse) is dropped, same idea as an
+// unknown FDA classification: ignore it rather than error.
+function categoryForSource(categoryId, nextSource, categories) {
+  if (!categoryId) return '';
+  const row = (Array.isArray(categories) ? categories : []).find((item) => item.id === categoryId);
+  if (!row) return '';
+  if (nextSource === 'all' || row.sources?.includes(nextSource)) return categoryId;
+  return '';
+}
+
+// Company chips already switch Food / Consumer. Category chips do the same
+// when the current source cannot show that type.
+function sourceForCategory(categoryId, currentSource, categories) {
+  const row = (Array.isArray(categories) ? categories : []).find((item) => item.id === categoryId);
+  if (!row?.sources?.length) return currentSource;
+  if (currentSource === 'all' || row.sources.includes(currentSource)) return currentSource;
+  return row.sources[0];
 }
 
 export default function App() {
@@ -60,6 +87,8 @@ export default function App() {
   });
   const [suggestedWindow, setSuggestedWindow] = useState(DEFAULT_LOOKBACK_WINDOW);
   const [suggestedReady, setSuggestedReady] = useState(false);
+  const [categories, setCategories] = useState([]);
+  const [categoryId, setCategoryId] = useState('');
   const pendingScrollRef = useRef(false);
   // Newest request wins. A slow "all" list must not overwrite a quick
   // "consumer" toggle that the user clicked afterwards.
@@ -84,10 +113,21 @@ export default function App() {
     };
   }, [suggestedWindow]);
 
+  useEffect(() => {
+    let cancelled = false;
+    fetchCategories().then((data) => {
+      if (cancelled) return;
+      setCategories(Array.isArray(data?.categories) ? data.categories : []);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // Home is a search with no keyword. The paged list is the hero, so load it
   // on arrival instead of waiting for someone to type.
   useEffect(() => {
-    fetchResults('', EMPTY_FILTERS, 1, DEFAULT_PAGE_SIZE, DEFAULT_SOURCE);
+    fetchResults('', EMPTY_FILTERS, 1, DEFAULT_PAGE_SIZE, DEFAULT_SOURCE, '');
   }, []);
 
   const dateRangeError = isInvalidDateRange(filters.dateFrom, filters.dateTo);
@@ -117,6 +157,7 @@ export default function App() {
     nextPage = 1,
     nextSize = pageSize,
     nextSource = source,
+    nextCategory = categoryId,
   ) {
     if (isInvalidDateRange(nextFilters.dateFrom, nextFilters.dateTo)) {
       return;
@@ -143,6 +184,7 @@ export default function App() {
         dateTo: requestFilters.dateTo,
         source: nextSource,
         location: requestFilters.location,
+        category: nextCategory,
       });
       const totalCount = data.total ?? 0;
       const clamped = clampPage(requestedPage, totalCount, size);
@@ -157,6 +199,7 @@ export default function App() {
           dateTo: requestFilters.dateTo,
           source: nextSource,
           location: requestFilters.location,
+          category: nextCategory,
         });
       }
       if (!isCurrent()) return false;
@@ -176,7 +219,7 @@ export default function App() {
     }
   }
 
-  async function handleSearch(trimmed, nextSource = source) {
+  async function handleSearch(trimmed, nextSource = source, nextCategory = categoryId) {
     const q = normalizeSearchQuery(trimmed);
     setQuery(q);
     setActiveQuery(q);
@@ -184,7 +227,7 @@ export default function App() {
       return;
     }
     setPage(1);
-    const ok = await fetchResults(q, filters, 1, pageSize, nextSource);
+    const ok = await fetchResults(q, filters, 1, pageSize, nextSource, nextCategory);
     if (ok && q) rememberSearch(q);
   }
 
@@ -197,15 +240,26 @@ export default function App() {
     const resolved =
       nextSource === 'consumer' || nextSource === 'food' ? nextSource : source;
     setSource(resolved);
-    handleSearch(phrase, resolved);
+    setCategoryId('');
+    handleSearch(phrase, resolved, '');
   }
 
   function handleClearSearch() {
     setQuery('');
     setActiveQuery('');
     setFilters(EMPTY_FILTERS);
+    setCategoryId('');
     setPage(1);
-    fetchResults('', EMPTY_FILTERS, 1, pageSize, source);
+    fetchResults('', EMPTY_FILTERS, 1, pageSize, source, '');
+  }
+
+  function handleCategorySelect(nextId) {
+    const id = String(nextId || '');
+    const nextSource = id ? sourceForCategory(id, source, categories) : source;
+    if (nextSource !== source) setSource(nextSource);
+    setCategoryId(id);
+    setPage(1);
+    fetchResults(activeQuery, filters, 1, pageSize, nextSource, id);
   }
 
   function handleFiltersChange(nextFilters) {
@@ -225,9 +279,11 @@ export default function App() {
   }
 
   function handleSourceChange(nextSource) {
+    const nextCategory = categoryForSource(categoryId, nextSource, categories);
+    if (nextCategory !== categoryId) setCategoryId(nextCategory);
     setSource(nextSource);
     setPage(1);
-    fetchResults(activeQuery, filters, 1, pageSize, nextSource);
+    fetchResults(activeQuery, filters, 1, pageSize, nextSource, nextCategory);
   }
 
   function handlePageSizeChange(nextSize) {
@@ -263,7 +319,17 @@ export default function App() {
   const savedIsCurrent = view === 'saved' || (view === 'detail' && returnView === 'saved');
 
   const filtersActive = hasActiveFilters(filtersForRequest(filters));
+  const selectedCategory = (Array.isArray(categories) ? categories : []).find(
+    (row) => row.id === categoryId,
+  );
+  const categoryLabel = selectedCategory?.label;
   const narrowed = Boolean(activeQuery) || filtersActive;
+  const browseTitle = narrowed
+    ? 'Matching recalls'
+    : categoryLabel
+      ? `${categoryLabel} recalls`
+      : 'Latest recalls';
+  const showClearSearch = narrowed || Boolean(categoryId);
 
   return (
     <div className="app">
@@ -318,18 +384,25 @@ export default function App() {
 
           <SourceToggle source={source} onChange={handleSourceChange} />
 
+          <CategoryChips
+            categories={categories}
+            source={source}
+            selectedId={categoryId}
+            onSelect={handleCategorySelect}
+          />
+
           <section className="browse" aria-labelledby="browse-heading">
             <div className="browse-header">
               <h2 id="browse-heading" className="browse-title">
-                {narrowed ? 'Matching recalls' : 'Latest recalls'}
+                {browseTitle}
               </h2>
-              {narrowed ? (
+              {showClearSearch ? (
                 <button type="button" className="browse-clear" onClick={handleClearSearch}>
                   Clear search
                 </button>
               ) : null}
             </div>
-            <p className="browse-lede">{sourceLede(source)}</p>
+            <p className="browse-lede">{sourceLede(source, categoryLabel, selectedCategory?.sources)}</p>
 
             <div className="narrow-tools">
               <SearchBar query={query} onChange={setQuery} onSearch={handleSearch} />
@@ -364,7 +437,7 @@ export default function App() {
               total={total}
               rangeStart={range.start}
               rangeEnd={range.end}
-              filtersActive={filtersActive}
+              filtersActive={filtersActive || Boolean(categoryId)}
               dateFrom={dateRangeError ? '' : filters.dateFrom}
               dateTo={dateRangeError ? '' : filters.dateTo}
               source={source}

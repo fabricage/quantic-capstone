@@ -17,6 +17,7 @@ Search FDA **food** and CPSC **consumer-product** recalls by product or firm. Th
 curl "https://recall-ledger-api.onrender.com/health"
 curl "https://recall-ledger-api.onrender.com/api/recalls?q=formula&limit=5"
 curl "https://recall-ledger-api.onrender.com/api/recalls?q=crib&source=consumer&limit=5"
+curl "https://recall-ledger-api.onrender.com/api/categories"
 curl "https://recall-ledger-api.onrender.com/api/personas"
 ```
 
@@ -29,6 +30,7 @@ Hostnames are **not** hardcoded in app logic. The static build uses `VITE_API_BA
 - Recall detail, pagination, saved bookmarks, recent-search chips
 - "Companies with the most recalls" chips at the top of home (monogram, count, 1 month – 2 year lookback) that switch source and search
 - Browse-first home: the newest FDA + CPSC recalls load as a paged list before anyone types
+- Keyword category chips (Dairy, Produce, Nursery, Toys, …) from `GET /api/categories` — the dictionary lives on the server; Latest stays the default
 - Persona ranking API (`/api/personas`, `/api/persona-rank`) kept server-side as an experiment; not shown in the UI
 - Static FAQ at the bottom of every view: FDA Class I / II / III, Ongoing / Completed / Terminated, and why CPSC cards have neither
 - Predictable empty / error copy and a React error boundary (no blank screens, no raw upstream dumps)
@@ -74,6 +76,7 @@ Server: `http://localhost:3001`
 curl "http://localhost:3001/health"
 curl "http://localhost:3001/api/recalls?q=formula&limit=5"
 curl "http://localhost:3001/api/recalls?q=crib&source=consumer&limit=5"
+curl "http://localhost:3001/api/categories"
 curl "http://localhost:3001/api/personas"
 ```
 

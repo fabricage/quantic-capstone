@@ -1,7 +1,7 @@
 /**
  * App.test.jsx
- * Purpose: Brand, company chips on top, browse-first home list, BFF search,
- * filters, detail, pagination, and the static FAQ.
+ * Purpose: Brand, company chips on top, keyword category chips, browse-first
+ * home list, BFF search, filters, detail, pagination, and the static FAQ.
  */
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -286,11 +286,22 @@ describe('App', () => {
     imageAlt: '',
   };
 
+  const homeCategories = [
+    { id: 'dairy', label: 'Dairy', sources: ['food'] },
+    { id: 'nursery', label: 'Nursery', sources: ['consumer'] },
+  ];
+
   // Home mock: FDA + CPSC rows for `all`, CPSC only for `consumer`, and a
   // Class I row whenever the classification filter is present.
   function browseFetch() {
     return vi.fn().mockImplementation((url) => {
       const href = String(url);
+      if (href.includes('/api/categories')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ categories: homeCategories }),
+        });
+      }
       if (href.includes('/api/trending-searches')) {
         return Promise.resolve({
           ok: true,
@@ -387,8 +398,10 @@ describe('App', () => {
 
     const sourceToggle = screen.getByRole('button', { name: 'All' });
     const searchInput = screen.getByRole('searchbox');
+    const dairyChip = await screen.findByRole('button', { name: 'Dairy' });
     expect(follows(chipsHeading, sourceToggle)).toBe(true);
-    expect(follows(sourceToggle, searchInput)).toBe(true);
+    expect(follows(sourceToggle, dairyChip)).toBe(true);
+    expect(follows(dairyChip, searchInput)).toBe(true);
     expect(follows(searchInput, firstCard)).toBe(true);
 
     const searchLabel = screen.getByText(/^search recalls$/i);
@@ -696,6 +709,124 @@ describe('App', () => {
     expect(consumerUrls.length).toBeGreaterThan(0);
     expect(consumerUrls.every((href) => href.includes('skip=0'))).toBe(true);
     expect(consumerUrls.some((href) => /[?&]q=/.test(href))).toBe(false);
+  });
+
+  it('a Dairy chip sends category=dairy, titles the list, and Clear search restores Latest', async () => {
+    const user = userEvent.setup();
+    const fetchMock = browseFetch();
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<App />);
+    expect(await screen.findByRole('button', { name: 'Dairy' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Nursery' })).toBeInTheDocument();
+    expect(screen.getByText(/browse by type/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Dairy' }));
+    expect(await screen.findByRole('heading', { name: /dairy recalls/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Dairy' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: /clear search/i })).toBeInTheDocument();
+
+    await waitFor(() => {
+      const dairyUrls = recallUrls(fetchMock).filter((href) => href.includes('category=dairy'));
+      expect(dairyUrls.length).toBeGreaterThan(0);
+    });
+    expect(screen.getByText(/newest first\. fda food\. showing dairy/i)).toBeInTheDocument();
+    expect(recallUrls(fetchMock).some((href) => href.includes('api.fda.gov'))).toBe(false);
+
+    await user.click(screen.getByRole('button', { name: /clear search/i }));
+    expect(await screen.findByRole('heading', { name: /latest recalls/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Dairy' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.queryByRole('button', { name: /clear search/i })).not.toBeInTheDocument();
+    await waitFor(() => {
+      const afterClear = recallUrls(fetchMock);
+      expect(afterClear[afterClear.length - 1].includes('category=')).toBe(false);
+    });
+  });
+
+  it('hides Food type chips on Consumer and drops an inapplicable category', async () => {
+    const user = userEvent.setup();
+    const fetchMock = browseFetch();
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<App />);
+    await user.click(await screen.findByRole('button', { name: 'Dairy' }));
+    expect(await screen.findByRole('heading', { name: /dairy recalls/i })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Consumer' }));
+    expect(await screen.findByText('Voomf')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Dairy' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Nursery' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /latest recalls/i })).toBeInTheDocument();
+
+    const consumerUrls = recallUrls(fetchMock).filter((href) => href.includes('source=consumer'));
+    expect(consumerUrls.length).toBeGreaterThan(0);
+    expect(consumerUrls.every((href) => !href.includes('category=dairy'))).toBe(true);
+  });
+
+  it('a company chip search clears the active category', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn().mockImplementation((url) => {
+      const href = String(url);
+      if (href.includes('/api/categories')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            categories: [{ id: 'dairy', label: 'Dairy', sources: ['food'] }],
+          }),
+        });
+      }
+      if (href.includes('/api/trending-searches')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            label: 'Companies with the most recalls',
+            groups: [
+              {
+                id: 'food',
+                label: 'FDA food',
+                source: 'food',
+                suggestions: ['FreshPoint'],
+              },
+            ],
+            suggestions: [],
+          }),
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({
+          total: 1,
+          source: href.includes('source=food') ? 'food' : 'all',
+          results: [
+            {
+              id: 'F-fresh',
+              firm: 'FreshPoint',
+              product: 'Chicken salad',
+              reason: 'Hazard',
+              classification: 'Class II',
+              recallDate: '20260903',
+              source: 'food',
+              imageUrl: '',
+              imageAlt: '',
+            },
+          ],
+        }),
+      });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<App />);
+    await user.click(await screen.findByRole('button', { name: 'Dairy' }));
+    expect(await screen.findByRole('heading', { name: /dairy recalls/i })).toBeInTheDocument();
+
+    await user.click(await screen.findByRole('button', { name: 'FreshPoint' }));
+    expect(await screen.findByText('Chicken salad')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /matching recalls/i })).toBeInTheDocument();
+    const firmUrls = fetchMock.mock.calls
+      .map((call) => String(call[0]))
+      .filter((href) => href.includes('/api/recalls') && href.includes('q=FreshPoint'));
+    expect(firmUrls.length).toBeGreaterThan(0);
+    expect(firmUrls.every((href) => !href.includes('category='))).toBe(true);
   });
 
   it('keeps the FAQ below the list on search, saved, and detail', async () => {

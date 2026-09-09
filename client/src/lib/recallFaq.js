@@ -23,6 +23,14 @@ export const FAQ_ITEMS = [
     ],
   },
   {
+    id: 'categories',
+    question: 'What are the Dairy, Nursery, and other type chips?',
+    paragraphs: [
+      'Those chips are product types the server keeps as keyword lists — Dairy is milk, cheese, yogurt, and similar words; Nursery is cribs, strollers, and other infant gear. They are not shopper personas and they are not official FDA or CPSC categories.',
+      'Pick one chip to narrow Latest recalls. Food types hide when you are on Consumer, and the reverse. You can still type a keyword or set Class I on top of a type. Clear search returns you to the unfiltered latest list.',
+    ],
+  },
+  {
     id: 'fields',
     question: 'What does each field on a recall mean?',
     paragraphs: [

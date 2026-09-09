@@ -5,6 +5,11 @@
  * Cache-Control: no-store — CPSC often drops new notices on Thursday.
  */
 import { Router } from 'express';
+import {
+  applyCategoryFilter,
+  publicCategory,
+  resolveCategory,
+} from '../lib/categories.js';
 import { fetchCpscRecalls, paginateCpscRecalls } from '../lib/cpsc.js';
 import { fetchCpscWebsiteRecalls } from '../lib/cpscWebsite.js';
 import { fetchFdaWebsiteRecalls } from '../lib/fdaWebsite.js';
@@ -95,6 +100,12 @@ function shouldMergeFoodWebsite({ classification, status, location }) {
   return !classification && !status && !location;
 }
 
+function categoryOnResponse(body, category) {
+  const pub = publicCategory(category);
+  if (pub) body.category = pub;
+  return body;
+}
+
 function shouldMergeConsumerWebsite(location) {
   // CPSC listing HTML rarely has manufacturer country.
   return !location;
@@ -125,17 +136,33 @@ export function createRecallsRouter({ fetchImpl = fetch } = {}) {
     const skip = parseSkip(req.query.skip);
     const source = resolveSource(req.query.source);
     const location = parseLocationFilter(req.query.location);
+    const category = resolveCategory(req.query.category, source);
+    const foodCategory = category?.sources.includes('food') ? category : null;
+    const consumerCategory = category?.sources.includes('consumer') ? category : null;
 
     if (source === 'food') {
       const food = await loadFood(
-        { q, classification, status, dateFrom, dateTo, limit, skip, location },
+        {
+          q,
+          classification,
+          status,
+          dateFrom,
+          dateTo,
+          limit,
+          skip,
+          location,
+          category: foodCategory,
+        },
         fetchImpl,
       );
       if (!food.ok) return failUpstream(res);
       let results = food.results;
       let total = food.total;
       if (shouldMergeFoodWebsite({ classification, status, location })) {
-        const website = await loadFdaWebsite({ q, dateFrom, dateTo }, fetchImpl);
+        const website = applyCategoryFilter(
+          await loadFdaWebsite({ q, dateFrom, dateTo }, fetchImpl),
+          foodCategory,
+        );
         results = mergeRecallLists(website, results);
         if (food.empty404) total = results.length;
         else if (website.length) total = Math.max(total, results.length);
@@ -146,7 +173,7 @@ export function createRecallsRouter({ fetchImpl = fetch } = {}) {
         source: 'food',
       };
       if (food.lastUpdated) foodBody.lastUpdated = food.lastUpdated;
-      return noStore(res).json(foodBody);
+      return noStore(res).json(categoryOnResponse(foodBody, category));
     }
 
     if (source === 'consumer') {
@@ -155,22 +182,46 @@ export function createRecallsRouter({ fetchImpl = fetch } = {}) {
       const website = shouldMergeConsumerWebsite(location)
         ? await loadCpscWebsite({ q, dateFrom, dateTo }, fetchImpl)
         : [];
-      const merged = filterByOrigin(mergeRecallLists(website, consumer.results), location);
+      const merged = applyCategoryFilter(
+        filterByOrigin(mergeRecallLists(website, consumer.results), location),
+        consumerCategory,
+      );
       const page = paginateCpscRecalls(merged, skip, limit);
-      return noStore(res).json({
-        total: page.total,
-        results: page.results,
-        source: 'consumer',
-      });
+      return noStore(res).json(
+        categoryOnResponse(
+          {
+            total: page.total,
+            results: page.results,
+            source: 'consumer',
+          },
+          category,
+        ),
+      );
     }
 
+    const wantFood = !category || Boolean(foodCategory);
+    const wantConsumer = !category || Boolean(consumerCategory);
     const foodOverFetch = Math.min(100, skip + limit + 40);
     const [foodSettled, consumerSettled] = await Promise.allSettled([
-      loadFood(
-        { q, classification, status, dateFrom, dateTo, limit: foodOverFetch, skip: 0, location },
-        fetchImpl,
-      ),
-      loadConsumer({ q, dateFrom, dateTo }, fetchImpl),
+      wantFood
+        ? loadFood(
+            {
+              q,
+              classification,
+              status,
+              dateFrom,
+              dateTo,
+              limit: foodOverFetch,
+              skip: 0,
+              location,
+              category: foodCategory,
+            },
+            fetchImpl,
+          )
+        : Promise.resolve({ ok: true, results: [], total: 0, lastUpdated: '' }),
+      wantConsumer
+        ? loadConsumer({ q, dateFrom, dateTo }, fetchImpl)
+        : Promise.resolve({ ok: true, results: [] }),
     ]);
 
     const food = foodSettled.status === 'fulfilled' ? foodSettled.value : { ok: false };
@@ -180,30 +231,38 @@ export function createRecallsRouter({ fetchImpl = fetch } = {}) {
 
     let foodResults = food.ok ? food.results : [];
     let consumerResults = consumer.ok ? consumer.results : [];
-    if (food.ok && shouldMergeFoodWebsite({ classification, status, location })) {
+    if (food.ok && wantFood && shouldMergeFoodWebsite({ classification, status, location })) {
       foodResults = mergeRecallLists(
-        await loadFdaWebsite({ q, dateFrom, dateTo }, fetchImpl),
+        applyCategoryFilter(
+          await loadFdaWebsite({ q, dateFrom, dateTo }, fetchImpl),
+          foodCategory,
+        ),
         foodResults,
       );
     }
-    if (consumer.ok) {
+    if (consumer.ok && wantConsumer) {
       const website = shouldMergeConsumerWebsite(location)
         ? await loadCpscWebsite({ q, dateFrom, dateTo }, fetchImpl)
         : [];
-      consumerResults = filterByOrigin(
-        mergeRecallLists(website, consumerResults),
-        location,
+      consumerResults = applyCategoryFilter(
+        filterByOrigin(mergeRecallLists(website, consumerResults), location),
+        consumerCategory,
       );
     }
 
     const merged = interleaveBySource(foodResults, consumerResults);
     const page = paginateCpscRecalls(merged, skip, limit);
-    return noStore(res).json({
-      total: page.total,
-      results: page.results,
-      source: 'all',
-      lastUpdated: food.ok ? food.lastUpdated : '',
-    });
+    return noStore(res).json(
+      categoryOnResponse(
+        {
+          total: page.total,
+          results: page.results,
+          source: 'all',
+          lastUpdated: food.ok ? food.lastUpdated : '',
+        },
+        category,
+      ),
+    );
   });
 
   return router;
