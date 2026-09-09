@@ -17,7 +17,7 @@ function getRenderer() {
   if (renderer) return renderer;
   renderer = new THREE.WebGLRenderer({
     alpha: true,
-    antialias: false,
+    antialias: true,
     powerPreference: 'low-power',
   });
   renderer.setClearColor(0x000000, 0);
