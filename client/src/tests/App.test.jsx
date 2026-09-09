@@ -81,7 +81,9 @@ describe('App', () => {
       }),
     );
     const requested = fetchMock.mock.calls.map((call) => String(call[0]));
-    expect(requested.some((url) => url.includes('/api/recalls'))).toBe(false);
+    expect(requested.some((url) => url.includes('/api/recalls') && url.includes('q='))).toBe(
+      false,
+    );
   });
 
   it('opens detail from a card and Escape returns to the same search', async () => {
@@ -124,9 +126,10 @@ describe('App', () => {
 
     await user.click(screen.getByRole('button', { name: /view details for infant formula/i }));
     expect(await screen.findByText(longReason)).toBeInTheDocument();
-    const recallCalls = fetchMock.mock.calls.filter((call) =>
-      String(call[0]).includes('/api/recalls'),
-    );
+    const recallCalls = fetchMock.mock.calls.filter((call) => {
+      const href = String(call[0]);
+      return href.includes('/api/recalls') && href.includes('q=formula');
+    });
     expect(recallCalls).toHaveLength(1);
 
     await user.keyboard('{Escape}');
@@ -265,6 +268,44 @@ describe('App', () => {
       imageAlt: '',
     },
   ];
+
+  it('shows latest and Class I home previews before the first search', async () => {
+    const fetchMock = vi.fn().mockImplementation((url) => {
+      const href = String(url);
+      if (href.includes('/api/personas')) {
+        return Promise.resolve({ ok: true, json: async () => ({ personas: [] }) });
+      }
+      const isClassI = href.includes('classification=Class');
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({
+          total: 1,
+          source: 'food',
+          results: [
+            {
+              id: isClassI ? 'F-class-i' : 'F-recent',
+              firm: isClassI ? 'High Risk Co' : 'Latest Dairy',
+              product: isClassI ? 'Infant formula' : 'Cheddar cheese',
+              reason: 'Possible contamination',
+              classification: isClassI ? 'Class I' : 'Class II',
+              recallDate: '20240115',
+              source: 'food',
+              imageUrl: '',
+              imageAlt: '',
+            },
+          ],
+        }),
+      });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<App />);
+    expect(screen.getByRole('heading', { name: /latest recalls/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /class i high-risk/i })).toBeInTheDocument();
+    expect(await screen.findByText('Latest Dairy')).toBeInTheDocument();
+    expect(await screen.findByText('High Risk Co')).toBeInTheDocument();
+    expect(screen.queryByText(/enter a keyword/i)).not.toBeInTheDocument();
+  });
 
   it('ranks the current page and shows why-lines when a persona is selected', async () => {
     const user = userEvent.setup();

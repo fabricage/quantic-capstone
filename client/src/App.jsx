@@ -1,17 +1,20 @@
 /**
  * App.jsx
- * Purpose: Search, filters, detail, pagination, bookmarks, chips, and persona ranking.
+ * Purpose: Search, filters, detail, pagination, bookmarks, chips, persona ranking, and home previews.
  */
 import { useEffect, useRef, useState } from 'react';
 import { fetchPersonas, rankRecallsForPersona, searchRecalls } from './api.js';
 import FilterBar from './components/FilterBar.jsx';
+import HighRiskRecalls from './components/HighRiskRecalls.jsx';
 import Pagination from './components/Pagination.jsx';
 import PersonaCards from './components/PersonaCards.jsx';
+import RecentRecalls from './components/RecentRecalls.jsx';
 import RecentSearchChips from './components/RecentSearchChips.jsx';
 import RecallDetail from './components/RecallDetail.jsx';
 import RecallList from './components/RecallList.jsx';
 import SavedRecalls from './components/SavedRecalls.jsx';
 import SearchBar from './components/SearchBar.jsx';
+import StatusMessage from './components/StatusMessage.jsx';
 import { normalizeSearchQuery, useRecentSearches } from './hooks/useRecentSearches.js';
 import { useSavedRecalls } from './hooks/useSavedRecalls.js';
 import { EMPTY_FILTERS, hasActiveFilters, isInvalidDateRange } from './lib/filters.js';
@@ -49,6 +52,8 @@ export default function App() {
   const [whyById, setWhyById] = useState({});
   const [personaRanking, setPersonaRanking] = useState(false);
   const [personaFallback, setPersonaFallback] = useState(false);
+  const [recentFailed, setRecentFailed] = useState(false);
+  const [classIFailed, setClassIFailed] = useState(false);
   const pendingScrollRef = useRef(false);
   const rankGenerationRef = useRef(0);
 
@@ -319,41 +324,60 @@ export default function App() {
             selectedId={personaId}
             onSelect={setPersonaId}
           />
-          <div className="results-top-sentinel" data-results-top />
-          {personaRanking ? (
-            <p className="status-message">Reordering for your persona…</p>
-          ) : null}
-          {personaFallback ? (
-            <p className="status-message status-message--notice" role="status">
-              We couldn’t personalize this page. Showing keyword order.
-            </p>
-          ) : null}
-          <RecallList
-            loading={loading}
-            searchFailed={searchFailed}
-            hasSearched={hasSearched}
-            query={activeQuery}
-            results={results}
-            total={total}
-            rangeStart={range.start}
-            rangeEnd={range.end}
-            filtersActive={hasActiveFilters(filters)}
-            dateFrom={dateRangeError ? '' : filters.dateFrom}
-            dateTo={dateRangeError ? '' : filters.dateTo}
-            onSelect={handleSelect}
-            isSaved={isSaved}
-            onToggleSave={toggleSave}
-            whyById={whyById}
-          />
-          {hasSearched && !loading && !searchFailed ? (
-            <Pagination
-              page={page}
-              pageSize={pageSize}
-              total={total}
-              onPageChange={handlePageChange}
-              onPageSizeChange={handlePageSizeChange}
-            />
-          ) : null}
+          {!hasSearched ? (
+            <div className="home-modules">
+              {recentFailed ? (
+                <StatusMessage>
+                  We couldn’t load the latest FDA recalls. You can still search above.
+                </StatusMessage>
+              ) : null}
+              {classIFailed ? (
+                <StatusMessage>
+                  We couldn’t load Class I high-risk recalls. You can still search above.
+                </StatusMessage>
+              ) : null}
+              <RecentRecalls onSelect={handleSelect} onFailed={setRecentFailed} />
+              <HighRiskRecalls onSelect={handleSelect} onFailed={setClassIFailed} />
+            </div>
+          ) : (
+            <>
+              <div className="results-top-sentinel" data-results-top />
+              {personaRanking ? (
+                <p className="status-message">Reordering for your persona…</p>
+              ) : null}
+              {personaFallback ? (
+                <p className="status-message status-message--notice" role="status">
+                  We couldn’t personalize this page. Showing keyword order.
+                </p>
+              ) : null}
+              <RecallList
+                loading={loading}
+                searchFailed={searchFailed}
+                hasSearched={hasSearched}
+                query={activeQuery}
+                results={results}
+                total={total}
+                rangeStart={range.start}
+                rangeEnd={range.end}
+                filtersActive={hasActiveFilters(filters)}
+                dateFrom={dateRangeError ? '' : filters.dateFrom}
+                dateTo={dateRangeError ? '' : filters.dateTo}
+                onSelect={handleSelect}
+                isSaved={isSaved}
+                onToggleSave={toggleSave}
+                whyById={whyById}
+              />
+              {!loading && !searchFailed ? (
+                <Pagination
+                  page={page}
+                  pageSize={pageSize}
+                  total={total}
+                  onPageChange={handlePageChange}
+                  onPageSizeChange={handlePageSizeChange}
+                />
+              ) : null}
+            </>
+          )}
         </>
       )}
     </div>
