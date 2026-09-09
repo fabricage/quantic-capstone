@@ -128,6 +128,7 @@ describe('GET /api/recalls', () => {
     const res = await request(app).get('/api/recalls').query({ q: 'formula' });
 
     expect(res.status).toBe(502);
+    expect(res.headers['cache-control']).toBe('no-store');
     expect(res.body).toEqual({
       error: 'Failed to fetch recalls from an upstream source',
     });
@@ -287,6 +288,22 @@ describe('GET /api/recalls', () => {
 
     const res = await request(app).get('/api/recalls').query({ source: 'all', q: 'crib' });
     expect(res.status).toBe(502);
+    expect(res.headers['cache-control']).toBe('no-store');
+  });
+
+  it('still returns 200 on source=all when only food hard-fails', async () => {
+    const fetchImpl = fetchByHost({
+      fda: () => jsonResponse(500, { error: 'ECONNREFUSED stack dump' }),
+      cpsc: [sampleCpsc()],
+    });
+    const app = createApp({ fetchImpl });
+
+    const res = await request(app).get('/api/recalls').query({ source: 'all', q: 'crib' });
+    expect(res.status).toBe(200);
+    expect(res.headers['cache-control']).toBe('no-store');
+    expect(res.body.source).toBe('all');
+    expect(res.body.results).toHaveLength(1);
+    expect(res.body.results[0].id).toBe('cpsc-26669');
   });
 
   it('merges FDA website press releases ahead of the API page', async () => {

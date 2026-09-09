@@ -18,9 +18,13 @@ export function apiUrl(path) {
   return `${base}${normalized}`;
 }
 
+const SEARCH_ERROR_MESSAGE =
+  'We couldn’t load recalls right now. Please try again.';
+
 /**
  * Keyword search against the BFF.
  * Why: injectable fetchImpl lets tests stub the network without hitting Express.
+ * Failures throw a fixed, user-safe message — never status text or upstream dumps.
  */
 export async function searchRecalls(
   {
@@ -47,18 +51,18 @@ export async function searchRecalls(
   if (source) params.set('source', source);
   if (location) params.set('location', location);
 
-  const response = await fetchImpl(apiUrl(`/api/recalls?${params.toString()}`));
-  if (!response.ok) {
-    let message = `Request failed (${response.status})`;
-    try {
-      const body = await response.json();
-      if (body?.error) message = String(body.error);
-    } catch {
-      // Keep the status-based message when the body is not JSON.
+  try {
+    const response = await fetchImpl(apiUrl(`/api/recalls?${params.toString()}`));
+    if (!response.ok) {
+      throw new Error(SEARCH_ERROR_MESSAGE);
     }
-    throw new Error(message);
+    return await response.json();
+  } catch (err) {
+    if (err instanceof Error && err.message === SEARCH_ERROR_MESSAGE) {
+      throw err;
+    }
+    throw new Error(SEARCH_ERROR_MESSAGE);
   }
-  return response.json();
 }
 
 const EMPTY_SUGGESTED_SEARCHES = { label: '', groups: [], suggestions: [] };
