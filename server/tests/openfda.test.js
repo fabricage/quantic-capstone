@@ -89,6 +89,27 @@ describe('buildSearchQuery / formatKeyword', () => {
       '(product_description:milk OR recalling_firm:milk)',
     );
   });
+
+  it('AND-joins a category OR-list on product and reason, not the firm', () => {
+    const dairy = {
+      keywords: ['milk', 'cheese', 'ice cream'],
+    };
+    expect(buildSearchQuery({ category: dairy })).toBe(
+      '(product_description:(milk OR cheese OR "ice cream") OR reason_for_recall:(milk OR cheese OR "ice cream"))',
+    );
+  });
+
+  it('AND-joins a typed keyword with a category and excludes juice from produce', () => {
+    const produce = {
+      keywords: ['apple', 'spinach'],
+      exclude: ['juice', 'cider'],
+    };
+    expect(buildSearchQuery({ q: 'organic', category: produce })).toContain(
+      '(product_description:organic OR recalling_firm:organic) AND ',
+    );
+    expect(buildSearchQuery({ category: produce })).toContain('AND NOT');
+    expect(buildSearchQuery({ category: produce })).toContain('juice OR cider');
+  });
 });
 
 describe('fetchRecallingFirmCounts', () => {

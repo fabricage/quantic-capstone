@@ -514,4 +514,78 @@ describe('GET /api/recalls', () => {
     expect(urls.some((href) => href.includes('cpsc.gov'))).toBe(false);
     expect(urls.some((href) => /ManufacturerCountry=/i.test(href))).toBe(false);
   });
+
+  it('sends a dairy Lucene OR to openFDA and echoes the category on the body', async () => {
+    const fetchImpl = fetchByHost({ fda: sampleOpenFda() });
+    const app = createApp({ fetchImpl });
+    const res = await request(app)
+      .get('/api/recalls')
+      .query({ source: 'food', category: 'dairy', limit: 5 });
+    expect(res.status).toBe(200);
+    expect(res.body.category).toEqual({
+      id: 'dairy',
+      label: 'Dairy',
+      sources: ['food'],
+    });
+    const fdaUrl = fetchImpl.mock.calls
+      .map((call) => decodeURIComponent(String(call[0]).replace(/\+/g, ' ')))
+      .find((href) => href.includes('api.fda.gov'));
+    expect(fdaUrl).toMatch(/milk OR cheese/);
+    expect(fdaUrl).toMatch(/product_description:\(/);
+    expect(fdaUrl).not.toMatch(/recalling_firm:\(milk/);
+  });
+
+  it('ignores an unknown category and does not put it on the query', async () => {
+    const fetchImpl = fetchByHost({ fda: sampleOpenFda() });
+    const app = createApp({ fetchImpl });
+    const res = await request(app).get('/api/recalls').query({
+      source: 'food',
+      category: 'widgets',
+      q: 'formula',
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.category).toBeUndefined();
+    const href = decodeURIComponent(String(fetchImpl.mock.calls[0][0]));
+    expect(href).toContain('product_description:formula');
+    expect(href).not.toContain('widgets');
+  });
+
+  it('filters CPSC latest rows to the nursery category', async () => {
+    const crib = sampleCpsc();
+    const speaker = sampleCpsc({
+      RecallID: 99,
+      RecallNumber: 'SPEAK1',
+      Title: 'Bluetooth Speakers Recalled',
+      Products: [{ Name: 'Portable speaker' }],
+      Hazards: [{ Name: 'Fire' }],
+      LastPublishDate: '2026-08-09T00:00:00',
+    });
+    const fetchImpl = fetchByHost({ cpsc: [crib, speaker] });
+    const app = createApp({ fetchImpl });
+    const res = await request(app).get('/api/recalls').query({
+      source: 'consumer',
+      category: 'nursery',
+      limit: 10,
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.category.id).toBe('nursery');
+    expect(res.body.results.map((row) => row.id)).toEqual(['cpsc-26669']);
+    expect(res.body.total).toBe(1);
+  });
+
+  it('does not query CPSC when source=all and the category is FDA-only', async () => {
+    const fetchImpl = fetchByHost({ fda: sampleOpenFda(), cpsc: [sampleCpsc()] });
+    const app = createApp({ fetchImpl });
+    const res = await request(app).get('/api/recalls').query({
+      source: 'all',
+      category: 'dairy',
+      limit: 5,
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.source).toBe('all');
+    expect(res.body.category.id).toBe('dairy');
+    const urls = fetchImpl.mock.calls.map((call) => String(call[0]));
+    expect(urls.some((href) => href.includes('saferproducts.gov'))).toBe(false);
+    expect(urls.some((href) => href.includes('api.fda.gov'))).toBe(true);
+  });
 });

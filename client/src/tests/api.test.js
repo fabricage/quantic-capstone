@@ -1,6 +1,7 @@
 /**
  * api.test.js
- * Purpose: getApiBase / apiUrl, search errors, and company-chip soft-fallback.
+ * Purpose: getApiBase / apiUrl, search errors, category forwarding, and
+ * company-chip / category soft-fallback.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -42,6 +43,21 @@ describe('searchRecalls', () => {
     expect(requested).toContain('/api/recalls');
     expect(requested).toContain('location=china');
     expect(requested).toContain('source=consumer');
+  });
+
+  it('forwards category onto /api/recalls', async () => {
+    vi.stubEnv('VITE_API_BASE_URL', '');
+    vi.resetModules();
+    const { searchRecalls } = await import('../api.js');
+    const fetchImpl = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ total: 0, results: [] }),
+    });
+    await searchRecalls({ q: '', source: 'all', category: 'dairy', limit: 20 }, fetchImpl);
+    const requested = String(fetchImpl.mock.calls[0][0]);
+    expect(requested).toContain('/api/recalls');
+    expect(requested).toContain('category=dairy');
+    expect(requested).not.toMatch(/[?&]q=/);
   });
 
   it('throws a user-safe message instead of an upstream dump', async () => {
@@ -99,5 +115,23 @@ describe('fetchSuggestedSearches', () => {
     await fetchSuggestedSearches({ windowId: '3m', fetchImpl });
     expect(String(fetchImpl.mock.calls[0][0])).toContain('/api/trending-searches');
     expect(String(fetchImpl.mock.calls[0][0])).toContain('window=3m');
+  });
+});
+
+describe('fetchCategories', () => {
+  it('soft-fails to an empty list when the BFF is down', async () => {
+    vi.stubEnv('VITE_API_BASE_URL', '');
+    vi.resetModules();
+    const { fetchCategories } = await import('../api.js');
+    const fetchImpl = vi.fn().mockRejectedValue(new Error('network down'));
+    await expect(fetchCategories(fetchImpl)).resolves.toEqual({ categories: [] });
+  });
+
+  it('soft-fails when the response is not ok', async () => {
+    vi.stubEnv('VITE_API_BASE_URL', '');
+    vi.resetModules();
+    const { fetchCategories } = await import('../api.js');
+    const fetchImpl = vi.fn().mockResolvedValue({ ok: false, status: 500 });
+    await expect(fetchCategories(fetchImpl)).resolves.toEqual({ categories: [] });
   });
 });
