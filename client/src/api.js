@@ -61,6 +61,28 @@ export async function searchRecalls(
   return response.json();
 }
 
+const EMPTY_SUGGESTED_SEARCHES = { label: '', groups: [], suggestions: [] };
+
+/**
+ * Company chips from the BFF. Soft-fails to empty groups so a down
+ * trending endpoint never blanks the search form.
+ */
+export async function fetchSuggestedSearches(fetchImpl = fetch) {
+  try {
+    const response = await fetchImpl(apiUrl('/api/trending-searches'));
+    if (!response?.ok) return EMPTY_SUGGESTED_SEARCHES;
+    const data = await response.json();
+    const groups = Array.isArray(data?.groups) ? data.groups : [];
+    return {
+      label: typeof data?.label === 'string' ? data.label : '',
+      groups,
+      suggestions: Array.isArray(data?.suggestions) ? data.suggestions : [],
+    };
+  } catch {
+    return EMPTY_SUGGESTED_SEARCHES;
+  }
+}
+
 export async function fetchPersonas(fetchImpl = fetch) {
   const response = await fetchImpl(apiUrl('/api/personas'));
   if (!response.ok) {
