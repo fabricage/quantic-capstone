@@ -468,4 +468,97 @@ describe('App', () => {
     expect(searchUrls.some((href) => href.includes('classification='))).toBe(false);
     expect(searchUrls.some((href) => href.includes('status='))).toBe(false);
   });
+
+  it('searches a company chip through the BFF, switches source, and remembers the phrase', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn().mockImplementation((url) => {
+      const href = String(url);
+      if (href.includes('/api/trending-searches')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            label: 'Companies with the most recalls',
+            groups: [
+              {
+                id: 'food',
+                label: 'FDA food',
+                source: 'food',
+                suggestions: ['FreshPoint'],
+              },
+              {
+                id: 'consumer',
+                label: 'CPSC consumer',
+                source: 'consumer',
+                suggestions: ['Truststone Group'],
+              },
+            ],
+            suggestions: [],
+          }),
+        });
+      }
+      if (href.includes('/api/personas')) {
+        return Promise.resolve({ ok: true, json: async () => ({ personas: [] }) });
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({
+          total: 1,
+          source: href.includes('source=consumer') ? 'consumer' : 'food',
+          results: [
+            {
+              id: href.includes('source=consumer') ? 'cpsc-trust' : 'F-fresh',
+              firm: href.includes('source=consumer') ? 'Truststone Group' : 'FreshPoint',
+              product: href.includes('source=consumer') ? 'Power bank' : 'Chicken salad',
+              reason: 'Hazard',
+              classification: href.includes('source=consumer') ? 'Consumer Product' : 'Class II',
+              recallDate: '20260903',
+              source: href.includes('source=consumer') ? 'consumer' : 'food',
+              imageUrl: '',
+              imageAlt: '',
+            },
+          ],
+        }),
+      });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<App />);
+    expect(await screen.findByRole('button', { name: 'FreshPoint' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Truststone Group' })).toBeInTheDocument();
+    expect(screen.getByText(/companies with the most recalls/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'FreshPoint' }));
+    expect(await screen.findByText('Chicken salad')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Food' })).toHaveAttribute('aria-pressed', 'true');
+    const foodUrls = fetchMock.mock.calls
+      .map((call) => String(call[0]))
+      .filter((href) => href.includes('/api/recalls') && href.includes('q=FreshPoint'));
+    expect(foodUrls.length).toBeGreaterThan(0);
+    expect(foodUrls.every((href) => href.includes('source=food'))).toBe(true);
+    expect(foodUrls.some((href) => href.includes('api.fda.gov'))).toBe(false);
+    expect(screen.getAllByRole('button', { name: 'FreshPoint' }).length).toBeGreaterThan(0);
+
+    await user.click(screen.getByRole('button', { name: 'Truststone Group' }));
+    expect(await screen.findByText('Power bank')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Consumer' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    const consumerUrls = fetchMock.mock.calls
+      .map((call) => String(call[0]))
+      .filter((href) => href.includes('/api/recalls') && href.includes('q=Truststone'));
+    expect(consumerUrls.length).toBeGreaterThan(0);
+    expect(consumerUrls.every((href) => href.includes('source=consumer'))).toBe(true);
+
+    expect(
+      within(screen.getByLabelText(/recent searches/i)).getByRole('button', {
+        name: 'Truststone Group',
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(screen.getByLabelText(/recent searches/i)).getByRole('button', {
+        name: 'FreshPoint',
+      }),
+    ).toBeInTheDocument();
+  });
 });

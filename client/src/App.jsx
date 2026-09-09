@@ -3,7 +3,7 @@
  * Purpose: Search, filters, detail, pagination, bookmarks, chips, persona ranking, and home previews.
  */
 import { useEffect, useRef, useState } from 'react';
-import { fetchPersonas, rankRecallsForPersona, searchRecalls } from './api.js';
+import { fetchPersonas, fetchSuggestedSearches, rankRecallsForPersona, searchRecalls } from './api.js';
 import FilterBar from './components/FilterBar.jsx';
 import HighRiskRecalls from './components/HighRiskRecalls.jsx';
 import Pagination from './components/Pagination.jsx';
@@ -16,6 +16,7 @@ import SavedRecalls from './components/SavedRecalls.jsx';
 import SearchBar from './components/SearchBar.jsx';
 import SourceToggle from './components/SourceToggle.jsx';
 import StatusMessage from './components/StatusMessage.jsx';
+import SuggestedSearchChips from './components/SuggestedSearchChips.jsx';
 import { normalizeSearchQuery, useRecentSearches } from './hooks/useRecentSearches.js';
 import { useSavedRecalls } from './hooks/useSavedRecalls.js';
 import { EMPTY_FILTERS, hasActiveFilters, isInvalidDateRange } from './lib/filters.js';
@@ -57,6 +58,10 @@ export default function App() {
   const [recentFailed, setRecentFailed] = useState(false);
   const [consumerFailed, setConsumerFailed] = useState(false);
   const [classIFailed, setClassIFailed] = useState(false);
+  const [suggestedSearches, setSuggestedSearches] = useState({
+    label: '',
+    groups: [],
+  });
   const pendingScrollRef = useRef(false);
   const rankGenerationRef = useRef(0);
 
@@ -66,6 +71,15 @@ export default function App() {
       .catch(() => {
         setPersonas([]);
       });
+  }, []);
+
+  useEffect(() => {
+    fetchSuggestedSearches().then((data) => {
+      setSuggestedSearches({
+        label: data?.label || '',
+        groups: Array.isArray(data?.groups) ? data.groups : [],
+      });
+    });
   }, []);
 
   const dateRangeError = isInvalidDateRange(filters.dateFrom, filters.dateTo);
@@ -225,7 +239,7 @@ export default function App() {
     }
   }
 
-  async function handleSearch(trimmed) {
+  async function handleSearch(trimmed, nextSource = source) {
     const q = normalizeSearchQuery(trimmed);
     setQuery(q);
     setActiveQuery(q);
@@ -234,13 +248,20 @@ export default function App() {
     }
     setHasSearched(true);
     setPage(1);
-    const ok = await fetchResults(q, filters, 1, pageSize);
+    const ok = await fetchResults(q, filters, 1, pageSize, nextSource);
     if (ok) rememberSearch(q);
   }
 
   function handleRecentSearch(query) {
     // A firm chip is just q=<firm phrase>. openFDA already ORs recalling_firm.
     handleSearch(query);
+  }
+
+  function handleSuggestedSearch(phrase, nextSource) {
+    const resolved =
+      nextSource === 'consumer' || nextSource === 'food' ? nextSource : source;
+    setSource(resolved);
+    handleSearch(phrase, resolved);
   }
 
   function handleFiltersChange(nextFilters) {
@@ -340,11 +361,18 @@ export default function App() {
       ) : (
         <>
           <SearchBar query={query} onChange={setQuery} onSearch={handleSearch}>
-            <RecentSearchChips
-              searches={recent}
-              onSelect={handleRecentSearch}
-              onClear={clearRecent}
-            />
+            <div className="search-bar-chips">
+              <SuggestedSearchChips
+                label={suggestedSearches.label}
+                groups={suggestedSearches.groups}
+                onSelect={handleSuggestedSearch}
+              />
+              <RecentSearchChips
+                searches={recent}
+                onSelect={handleRecentSearch}
+                onClear={clearRecent}
+              />
+            </div>
           </SearchBar>
           <SourceToggle source={source} onChange={handleSourceChange} />
           <FilterBar

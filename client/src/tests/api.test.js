@@ -56,3 +56,17 @@ describe('searchRecalls', () => {
     expect(requested).toContain('source=consumer');
   });
 });
+
+describe('fetchSuggestedSearches', () => {
+  it('soft-fails to empty groups when the BFF is down', async () => {
+    vi.stubEnv('VITE_API_BASE_URL', '');
+    vi.resetModules();
+    const { fetchSuggestedSearches } = await import('../api.js');
+    const fetchImpl = vi.fn().mockRejectedValue(new Error('network down'));
+    await expect(fetchSuggestedSearches(fetchImpl)).resolves.toEqual({
+      label: '',
+      groups: [],
+      suggestions: [],
+    });
+  });
+});

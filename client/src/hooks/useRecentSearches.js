@@ -2,7 +2,7 @@
  * useRecentSearches.js
  * Purpose: Remember recent keyword searches in localStorage as clickable chips.
  *
- * A later firm chip (Card 13) is still just q=<firm phrase>. openFDA already
+ * A firm chip (Card 13) is still just q=<firm phrase>. openFDA already
  * ORs recalling_firm — do not add a separate firm endpoint.
  */
 import { useCallback, useEffect, useState } from 'react';
