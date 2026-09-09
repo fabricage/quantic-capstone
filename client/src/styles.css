@@ -240,10 +240,12 @@ body {
   color: var(--muted);
 }
 
+/* Even grid instead of wrapped pills: the section sits above the list, so
+   tidy full rows keep it short and let the recalls start sooner. */
 .suggested-search-chip-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.55rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  gap: 0.5rem;
   list-style: none;
   margin: 0.25rem 0 0;
   padding: 0;
@@ -253,8 +255,8 @@ body {
   display: flex;
   align-items: center;
   gap: 0.65rem;
-  min-width: 10.5rem;
-  max-width: 16rem;
+  width: 100%;
+  min-width: 0;
   font-family: var(--font-sans);
   font-size: 0.92rem;
   text-align: left;
