@@ -1,9 +1,8 @@
 /**
  * SuggestedSearchChips.jsx
- * Purpose: FDA / CPSC company chips with a monogram + recall count. Sits at
- * the top of home, always visible, so it doubles as a section with its own
- * heading. A lookback row lets the user switch 1 month / 3 months / 1 year.
- * onSelect(phrase, source) so App can switch Food vs Consumer, then search.
+ * Purpose: Two stacked marquees (FDA left, CPSC right) of 8 company chips.
+ * Lookback radios stay above. Duplicate tracks are aria-hidden so each
+ * firm is announced once; animation pauses on hover/focus.
  */
 import {
   LOOKBACK_WINDOWS,
@@ -13,6 +12,71 @@ import {
   suggestionCount,
   suggestionPhrase,
 } from '../lib/suggestedChips.js';
+
+function ChipList({ group, onSelect, headingId, hidden = false }) {
+  return (
+    <ul
+      className="suggested-search-chip-list"
+      aria-hidden={hidden ? true : undefined}
+      aria-labelledby={!hidden && group.label ? headingId : undefined}
+    >
+      {group.suggestions.map((item, index) => {
+        const phrase = suggestionPhrase(item);
+        if (!phrase) return null;
+        const count = suggestionCount(item);
+        const countLabel = formatRecallCount(count);
+        return (
+          <li key={`${hidden ? 'dup' : 'live'}:${group.source}:${phrase}:${index}`}>
+            <button
+              type="button"
+              className="suggested-search-chip"
+              aria-label={chipAccessibleName(phrase, count)}
+              tabIndex={hidden ? -1 : undefined}
+              onClick={() => onSelect?.(phrase, group.source)}
+            >
+              <span className="suggested-search-chip-logo" aria-hidden="true">
+                {firmMonogram(phrase)}
+              </span>
+              <span className="suggested-search-chip-copy">
+                <span className="suggested-search-chip-name">{phrase}</span>
+                {countLabel ? (
+                  <span className="suggested-search-chip-count">{countLabel}</span>
+                ) : null}
+              </span>
+            </button>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+function ChipMarquee({ group, onSelect }) {
+  const headingId = `suggested-searches-${group.id || group.source}`;
+  // CPSC runs the other way so the two rows don't read as one long list.
+  const reverse = group.source === 'consumer';
+
+  return (
+    <div className="suggested-search-group">
+      {group.label ? (
+        <p id={headingId} className="suggested-search-group-label">
+          {group.label}
+        </p>
+      ) : null}
+      <div
+        className={`suggested-search-marquee${reverse ? ' is-reverse' : ''}`}
+        data-direction={reverse ? 'right' : 'left'}
+        role="region"
+        aria-label={`${group.label || 'Companies'}. Scrolls automatically; hover or focus to pause.`}
+      >
+        <div className="suggested-search-marquee-track">
+          <ChipList group={group} onSelect={onSelect} headingId={headingId} />
+          <ChipList group={group} onSelect={onSelect} headingId={headingId} hidden />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function SuggestedSearchChips({
   label = '',
@@ -64,49 +128,9 @@ export default function SuggestedSearchChips({
       {usable.length === 0 && showWindows && ready ? (
         <p className="suggested-search-empty">No companies found for this period.</p>
       ) : null}
-      {usable.map((group) => {
-        const headingId = `suggested-searches-${group.id || group.source}`;
-        return (
-          <div key={group.id || group.source} className="suggested-search-group">
-            {group.label ? (
-              <p id={headingId} className="suggested-search-group-label">
-                {group.label}
-              </p>
-            ) : null}
-            <ul
-              className="suggested-search-chip-list"
-              aria-labelledby={group.label ? headingId : undefined}
-            >
-              {group.suggestions.map((item, index) => {
-                const phrase = suggestionPhrase(item);
-                if (!phrase) return null;
-                const count = suggestionCount(item);
-                const countLabel = formatRecallCount(count);
-                return (
-                  <li key={`${group.source}:${phrase}:${index}`}>
-                    <button
-                      type="button"
-                      className="suggested-search-chip"
-                      aria-label={chipAccessibleName(phrase, count)}
-                      onClick={() => onSelect?.(phrase, group.source)}
-                    >
-                      <span className="suggested-search-chip-logo" aria-hidden="true">
-                        {firmMonogram(phrase)}
-                      </span>
-                      <span className="suggested-search-chip-copy">
-                        <span className="suggested-search-chip-name">{phrase}</span>
-                        {countLabel ? (
-                          <span className="suggested-search-chip-count">{countLabel}</span>
-                        ) : null}
-                      </span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        );
-      })}
+      {usable.map((group) => (
+        <ChipMarquee key={group.id || group.source} group={group} onSelect={onSelect} />
+      ))}
     </div>
   );
 }

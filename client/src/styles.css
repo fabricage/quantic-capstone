@@ -193,14 +193,6 @@ body {
   font-size: 1.35rem;
 }
 
-.suggested-search-group-label {
-  margin: 0;
-  font-family: var(--font-sans);
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--ink);
-}
-
 /* Home opens on the company chips: a soft card so it reads as its own
    section, but no border so it does not fight the recall cards below. */
 .company-spotlight {
@@ -208,6 +200,7 @@ body {
   padding: 1rem 1.1rem 1.1rem;
   border-radius: 12px;
   background: var(--paper);
+  overflow: hidden;
 }
 
 .suggested-search-windows {
@@ -240,30 +233,103 @@ body {
   color: var(--muted);
 }
 
-/* Even grid instead of wrapped pills: the section sits above the list, so
-   tidy full rows keep it short and let the recalls start sooner. */
+.suggested-search-group-label {
+  margin: 0 0 0.35rem;
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.suggested-search-group + .suggested-search-group {
+  margin-top: 0.65rem;
+}
+
+/* Two stacked marquees. Each track is two copies of the 8 chips so the
+   loop has no seam. FDA (default) crawls left; CPSC (.is-reverse) crawls right. */
+.suggested-search-marquee {
+  overflow: hidden;
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 1.25rem,
+    #000 calc(100% - 1.25rem),
+    transparent
+  );
+}
+
+.suggested-search-marquee-track {
+  display: flex;
+  width: max-content;
+  animation: suggested-marquee-left 42s linear infinite;
+}
+
+.suggested-search-marquee.is-reverse .suggested-search-marquee-track {
+  animation-name: suggested-marquee-right;
+}
+
+.suggested-search-marquee:hover .suggested-search-marquee-track,
+.suggested-search-marquee:focus-within .suggested-search-marquee-track {
+  animation-play-state: paused;
+}
+
+@keyframes suggested-marquee-left {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes suggested-marquee-right {
+  from {
+    transform: translateX(-50%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .suggested-search-marquee {
+    mask-image: none;
+    overflow-x: auto;
+  }
+
+  .suggested-search-marquee-track {
+    animation: none;
+    transform: none;
+  }
+
+  .suggested-search-marquee-track [aria-hidden='true'] {
+    display: none;
+  }
+}
+
 .suggested-search-chip-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  display: flex;
+  flex: 0 0 auto;
   gap: 0.5rem;
   list-style: none;
-  margin: 0.25rem 0 0;
-  padding: 0;
+  margin: 0;
+  padding: 0 0.5rem 0 0;
 }
 
 .suggested-search-chip {
   display: flex;
   align-items: center;
   gap: 0.65rem;
-  width: 100%;
-  min-width: 0;
+  flex: 0 0 auto;
+  width: 12.5rem;
+  min-width: 12.5rem;
   font-family: var(--font-sans);
   font-size: 0.92rem;
   text-align: left;
   border: 1px solid var(--line);
   border-radius: 1rem;
   padding: 0.55rem 0.75rem 0.55rem 0.55rem;
-  background: var(--paper);
+  background: var(--color-bg);
   color: var(--ink);
   cursor: pointer;
 }
