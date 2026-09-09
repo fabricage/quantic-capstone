@@ -1,7 +1,8 @@
 # The Recall Ledger
 
 Public site: **https://www.getproductrecall.com/**  
-API (Render, stays here): **https://recall-ledger-api.onrender.com**
+API (Render, stays here): **https://recall-ledger-api.onrender.com**  
+Trello (MSSE capstone board): **https://trello.com/invite/b/6a77330540d1eca3d3f9cdc5/ATTI65d6bab2e6a3c7302abd4ac3037d539868DE3DFC/recall-ledger-msse-capstone**
 
 Search FDA **food** and CPSC **consumer-product** recalls by product or firm. The React client talks only to this Express **backend-for-frontend (BFF)** — never directly to openFDA, CPSC, or Anthropic.
 
@@ -12,6 +13,7 @@ Search FDA **food** and CPSC **consumer-product** recalls by product or firm. Th
 | App | https://www.getproductrecall.com/ |
 | API | https://recall-ledger-api.onrender.com |
 | Health | https://recall-ledger-api.onrender.com/health |
+| Trello | https://trello.com/invite/b/6a77330540d1eca3d3f9cdc5/ATTI65d6bab2e6a3c7302abd4ac3037d539868DE3DFC/recall-ledger-msse-capstone |
 
 ```bash
 curl "https://recall-ledger-api.onrender.com/health"
