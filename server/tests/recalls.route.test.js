@@ -3,8 +3,13 @@
  * Purpose: HTTP tests for /health and GET /api/recalls with an injected fetch stub.
  */
 import request from 'supertest';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createApp } from '../index.js';
+import { websiteCache } from '../lib/websiteCache.js';
+
+afterEach(() => {
+  websiteCache.clear();
+});
 
 function jsonResponse(status, body) {
   return {
@@ -282,5 +287,74 @@ describe('GET /api/recalls', () => {
 
     const res = await request(app).get('/api/recalls').query({ source: 'all', q: 'crib' });
     expect(res.status).toBe(502);
+  });
+
+  it('merges FDA website press releases ahead of the API page', async () => {
+    const websiteHtml = `
+      <table>
+        <tr>
+          <td headers="view-field-change-date-2-table-column"><time datetime="2026-09-08T00:00:00Z">09/08/2026</time></td>
+          <td headers="view-brand-name-table-column"><a href="/safety/recalls/fresh-chicken">Created Fresh!</a></td>
+          <td headers="view-field-product-description-1-table-column">Chicken Salad Wedge</td>
+          <td headers="view-field-regulated-product-field-table-column">Food &amp; Beverages</td>
+          <td headers="view-field-recall-reason-description-1-table-column">Undeclared egg</td>
+          <td headers="view-company-name-table-column">FreshPoint</td>
+        </tr>
+      </table>
+    `;
+    const fetchImpl = vi.fn().mockImplementation((url) => {
+      const href = String(url);
+      if (href.includes('www.fda.gov') || href.includes('r.jina.ai')) {
+        return { ok: true, status: 200, text: async () => websiteHtml };
+      }
+      return jsonResponse(200, sampleOpenFda());
+    });
+    const app = createApp({ fetchImpl });
+    const res = await request(app).get('/api/recalls').query({ q: 'chicken', limit: 5 });
+    expect(res.status).toBe(200);
+    expect(res.body.results[0].id).toMatch(/^fda-web-/);
+    expect(res.body.results[0].product).toMatch(/chicken salad/i);
+    expect(res.body.results.some((row) => row.id === 'F-123-2024')).toBe(true);
+  });
+
+  it('still surfaces website press releases when openFDA returns 404', async () => {
+    const websiteHtml = `
+      <table>
+        <tr>
+          <td headers="view-field-change-date-2-table-column">09/08/2026</td>
+          <td headers="view-brand-name-table-column"><a href="/safety/recalls/zzzx">Zz Brand</a></td>
+          <td headers="view-field-product-description-1-table-column">zzzx snack</td>
+          <td headers="view-field-regulated-product-field-table-column">Food &amp; Beverages</td>
+          <td headers="view-field-recall-reason-description-1-table-column">Listeria</td>
+          <td headers="view-company-name-table-column">Zz Co</td>
+        </tr>
+      </table>
+    `;
+    const fetchImpl = vi.fn().mockImplementation((url) => {
+      const href = String(url);
+      if (href.includes('www.fda.gov') || href.includes('r.jina.ai')) {
+        return { ok: true, status: 200, text: async () => websiteHtml };
+      }
+      return jsonResponse(404, { error: { code: 'NOT_FOUND' } });
+    });
+    const app = createApp({ fetchImpl });
+    const res = await request(app).get('/api/recalls').query({ q: 'zzzx' });
+    expect(res.status).toBe(200);
+    expect(res.body.results).toHaveLength(1);
+    expect(res.body.results[0].firm).toBe('Zz Co');
+  });
+
+  it('skips the FDA website merge when classification is set', async () => {
+    const fetchImpl = vi.fn().mockImplementation((url) => {
+      const href = String(url);
+      if (href.includes('fda.gov')) {
+        return { ok: true, status: 200, text: async () => '<table></table>' };
+      }
+      return jsonResponse(200, sampleOpenFda());
+    });
+    const app = createApp({ fetchImpl });
+    await request(app).get('/api/recalls').query({ q: 'milk', classification: 'Class I' });
+    const urls = fetchImpl.mock.calls.map((call) => String(call[0]));
+    expect(urls.some((href) => href.includes('fda.gov/safety'))).toBe(false);
   });
 });

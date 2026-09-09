@@ -5,7 +5,10 @@
  */
 import { Router } from 'express';
 import { fetchCpscRecalls, paginateCpscRecalls } from '../lib/cpsc.js';
+import { fetchCpscWebsiteRecalls } from '../lib/cpscWebsite.js';
+import { fetchFdaWebsiteRecalls } from '../lib/fdaWebsite.js';
 import {
+  mergeRecallLists,
   normalizeConsumerRecalls,
   normalizeRecalls,
   sortRecallsByDateDesc,
@@ -68,6 +71,27 @@ async function loadConsumer(query, fetchImpl) {
   }
 }
 
+async function loadFdaWebsite(query, fetchImpl) {
+  try {
+    return await fetchFdaWebsiteRecalls(query, fetchImpl);
+  } catch {
+    return [];
+  }
+}
+
+async function loadCpscWebsite(query, fetchImpl) {
+  try {
+    return await fetchCpscWebsiteRecalls(query, fetchImpl);
+  } catch {
+    return [];
+  }
+}
+
+function shouldMergeFoodWebsite({ classification, status, location }) {
+  // HTML listings do not carry FDA class/status/country reliably.
+  return !classification && !status && !location;
+}
+
 export function createRecallsRouter({ fetchImpl = fetch } = {}) {
   const router = Router();
 
@@ -88,9 +112,17 @@ export function createRecallsRouter({ fetchImpl = fetch } = {}) {
         fetchImpl,
       );
       if (!food.ok) return failUpstream(res);
+      let results = food.results;
+      let total = food.total;
+      if (shouldMergeFoodWebsite({ classification, status, location: '' })) {
+        const website = await loadFdaWebsite({ q, dateFrom, dateTo }, fetchImpl);
+        results = mergeRecallLists(website, results);
+        if (food.empty404) total = results.length;
+        else if (website.length) total = Math.max(total, results.length);
+      }
       const foodBody = {
-        total: food.total,
-        results: food.results,
+        total,
+        results,
         source: 'food',
       };
       if (food.lastUpdated) foodBody.lastUpdated = food.lastUpdated;
@@ -100,7 +132,9 @@ export function createRecallsRouter({ fetchImpl = fetch } = {}) {
     if (source === 'consumer') {
       const consumer = await loadConsumer({ q, dateFrom, dateTo }, fetchImpl);
       if (!consumer.ok) return failUpstream(res);
-      const page = paginateCpscRecalls(consumer.results, skip, limit);
+      const website = await loadCpscWebsite({ q, dateFrom, dateTo }, fetchImpl);
+      const merged = mergeRecallLists(website, consumer.results);
+      const page = paginateCpscRecalls(merged, skip, limit);
       return noStore(res).json({
         total: page.total,
         results: page.results,
@@ -122,10 +156,22 @@ export function createRecallsRouter({ fetchImpl = fetch } = {}) {
 
     if (!food.ok && !consumer.ok) return failUpstream(res);
 
-    const merged = sortRecallsByDateDesc([
-      ...(food.ok ? food.results : []),
-      ...(consumer.ok ? consumer.results : []),
-    ]);
+    let foodResults = food.ok ? food.results : [];
+    let consumerResults = consumer.ok ? consumer.results : [];
+    if (food.ok && shouldMergeFoodWebsite({ classification, status, location: '' })) {
+      foodResults = mergeRecallLists(
+        await loadFdaWebsite({ q, dateFrom, dateTo }, fetchImpl),
+        foodResults,
+      );
+    }
+    if (consumer.ok) {
+      consumerResults = mergeRecallLists(
+        await loadCpscWebsite({ q, dateFrom, dateTo }, fetchImpl),
+        consumerResults,
+      );
+    }
+
+    const merged = sortRecallsByDateDesc([...foodResults, ...consumerResults]);
     const page = paginateCpscRecalls(merged, skip, limit);
     return noStore(res).json({
       total: page.total,

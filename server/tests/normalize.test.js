@@ -5,6 +5,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   firstCpscImage,
+  mergeConsumerRecalls,
+  mergeRecallLists,
   normalizeConsumerRecall,
   normalizeFoodRecall,
   normalizeRecall,
@@ -160,6 +162,55 @@ describe('normalizeConsumerRecall', () => {
     });
     expect(recall.recallDate).toBe('20000315');
     expect(recall.publishedDate).toBe('20000315');
+  });
+});
+
+describe('mergeRecallLists', () => {
+  it('keeps website rows first, de-dupes by URL/title, and copies a photo from the API twin', () => {
+    const website = [
+      {
+        id: 'fda-web-1',
+        product: 'Chicken Salad Wedge',
+        url: 'https://www.fda.gov/safety/recalls/chicken',
+        firm: 'FreshPoint',
+        reason: '',
+        imageUrl: '',
+        imageAlt: '',
+        country: '',
+        source: 'food',
+      },
+    ];
+    const api = [
+      {
+        id: 'F-1',
+        product: 'Chicken Salad Wedge',
+        url: 'https://www.fda.gov/safety/recalls/chicken/',
+        firm: 'FreshPoint Inc',
+        reason: 'Undeclared egg',
+        imageUrl: 'https://cdn.example/salad.jpg',
+        imageAlt: 'Salad',
+        country: 'United States',
+        source: 'food',
+      },
+      {
+        id: 'F-2',
+        product: 'Older API-only milk',
+        url: '',
+        firm: 'Dairy Co',
+        reason: 'Listeria',
+        imageUrl: '',
+        imageAlt: '',
+        country: '',
+        source: 'food',
+      },
+    ];
+
+    const merged = mergeRecallLists(website, api);
+    expect(merged.map((r) => r.id)).toEqual(['fda-web-1', 'F-2']);
+    expect(merged[0].imageUrl).toBe('https://cdn.example/salad.jpg');
+    expect(merged[0].reason).toBe('Undeclared egg');
+    expect(merged[0].country).toBe('United States');
+    expect(mergeConsumerRecalls).toBe(mergeRecallLists);
   });
 });
 
