@@ -193,13 +193,12 @@ body {
   font-size: 1.35rem;
 }
 
-/* Home opens on the company chips: a soft card so it reads as its own
-   section, but no border so it does not fight the recall cards below. */
+/* Company chips sit on the same sage wash as the rest of home — no
+   paper card. Overflow still clips the marquee so chips do not spill. */
 .company-spotlight {
   margin: 1.25rem 0 1.5rem;
-  padding: 1rem 1.1rem 1.1rem;
-  border-radius: 12px;
-  background: var(--paper);
+  padding: 0;
+  background: transparent;
   overflow: hidden;
 }
 
