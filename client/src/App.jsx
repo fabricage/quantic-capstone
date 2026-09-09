@@ -32,17 +32,16 @@ import { DEFAULT_LOOKBACK_WINDOW, LOOKBACK_WINDOWS } from './lib/suggestedChips.
 
 const DEFAULT_SOURCE = 'all';
 
-function sourceLede(source, categoryLabel) {
+function sourceLede(source, categoryLabel, categorySources) {
+  const only = Array.isArray(categorySources) && categorySources.length === 1
+    ? categorySources[0]
+    : '';
+  const effective = only || source;
   let line = 'Newest first, alternating one FDA food recall with one CPSC consumer product.';
-  if (source === 'consumer') line = 'Newest first. CPSC consumer products.';
-  if (source === 'food') line = 'Newest first. FDA food.';
+  if (effective === 'consumer') line = 'Newest first. CPSC consumer products.';
+  if (effective === 'food') line = 'Newest first. FDA food.';
   if (categoryLabel) return `${line} Showing ${categoryLabel}.`;
   return line;
-}
-
-function categoryLabelFor(categories, categoryId) {
-  return (Array.isArray(categories) ? categories : []).find((row) => row.id === categoryId)
-    ?.label;
 }
 
 // A Food-only chip on Consumer (or the reverse) is dropped, same idea as an
@@ -320,7 +319,10 @@ export default function App() {
   const savedIsCurrent = view === 'saved' || (view === 'detail' && returnView === 'saved');
 
   const filtersActive = hasActiveFilters(filtersForRequest(filters));
-  const categoryLabel = categoryLabelFor(categories, categoryId);
+  const selectedCategory = (Array.isArray(categories) ? categories : []).find(
+    (row) => row.id === categoryId,
+  );
+  const categoryLabel = selectedCategory?.label;
   const narrowed = Boolean(activeQuery) || filtersActive;
   const browseTitle = narrowed
     ? 'Matching recalls'
@@ -400,7 +402,7 @@ export default function App() {
                 </button>
               ) : null}
             </div>
-            <p className="browse-lede">{sourceLede(source, categoryLabel)}</p>
+            <p className="browse-lede">{sourceLede(source, categoryLabel, selectedCategory?.sources)}</p>
 
             <div className="narrow-tools">
               <SearchBar query={query} onChange={setQuery} onSearch={handleSearch} />

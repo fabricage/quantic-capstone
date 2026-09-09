@@ -43,6 +43,8 @@ describe('textMatchesCategory', () => {
     expect(textMatchesCategory('Bagged spinach', produce)).toBe(true);
     expect(textMatchesCategory('Organic apple juice', produce)).toBe(false);
     expect(textMatchesCategory('Organic apple juice', beverage)).toBe(true);
+    expect(textMatchesCategory('Pistachio Nut Butter', dairy)).toBe(false);
+    expect(textMatchesCategory('Cheddar butter', dairy)).toBe(true);
   });
 });
 

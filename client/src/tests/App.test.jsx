@@ -730,6 +730,7 @@ describe('App', () => {
       const dairyUrls = recallUrls(fetchMock).filter((href) => href.includes('category=dairy'));
       expect(dairyUrls.length).toBeGreaterThan(0);
     });
+    expect(screen.getByText(/newest first\. fda food\. showing dairy/i)).toBeInTheDocument();
     expect(recallUrls(fetchMock).some((href) => href.includes('api.fda.gov'))).toBe(false);
 
     await user.click(screen.getByRole('button', { name: /clear search/i }));

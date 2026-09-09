@@ -21,6 +21,7 @@ export const CATEGORIES = [
     label: 'Dairy',
     sources: ['food'],
     keywords: ['milk', 'cheese', 'yogurt', 'ice cream', 'butter', 'cream', 'dairy'],
+    exclude: ['nut butter'],
   },
   {
     id: 'produce',
