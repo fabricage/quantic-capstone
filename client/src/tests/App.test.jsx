@@ -275,22 +275,23 @@ describe('App', () => {
       if (href.includes('/api/personas')) {
         return Promise.resolve({ ok: true, json: async () => ({ personas: [] }) });
       }
+      const isConsumer = href.includes('source=consumer');
       const isClassI = href.includes('classification=Class');
       return Promise.resolve({
         ok: true,
         json: async () => ({
           total: 1,
-          source: 'food',
+          source: isConsumer ? 'consumer' : 'food',
           results: [
             {
-              id: isClassI ? 'F-class-i' : 'F-recent',
-              firm: isClassI ? 'High Risk Co' : 'Latest Dairy',
-              product: isClassI ? 'Infant formula' : 'Cheddar cheese',
+              id: isConsumer ? 'cpsc-home' : isClassI ? 'F-class-i' : 'F-recent',
+              firm: isConsumer ? 'Voomf' : isClassI ? 'High Risk Co' : 'Latest Dairy',
+              product: isConsumer ? 'Crib mattress' : isClassI ? 'Infant formula' : 'Cheddar cheese',
               reason: 'Possible contamination',
-              classification: isClassI ? 'Class I' : 'Class II',
+              classification: isConsumer ? 'Consumer Product' : isClassI ? 'Class I' : 'Class II',
               recallDate: '20240115',
-              source: 'food',
-              imageUrl: '',
+              source: isConsumer ? 'consumer' : 'food',
+              imageUrl: isConsumer ? 'https://www.cpsc.gov/s3fs-public/crib.jpg' : '',
               imageAlt: '',
             },
           ],
@@ -301,8 +302,11 @@ describe('App', () => {
 
     render(<App />);
     expect(screen.getByRole('heading', { name: /latest recalls/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /fda food/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /cpsc consumer/i })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /class i high-risk/i })).toBeInTheDocument();
     expect(await screen.findByText('Latest Dairy')).toBeInTheDocument();
+    expect(await screen.findByText('Voomf')).toBeInTheDocument();
     expect(await screen.findByText('High Risk Co')).toBeInTheDocument();
     expect(screen.queryByText(/enter a keyword/i)).not.toBeInTheDocument();
   });
@@ -411,5 +415,57 @@ describe('App', () => {
       .map((el) => el.getAttribute('aria-label'));
     expect(titles[0]).toMatch(/whole milk/i);
     expect(screen.queryByText(/kids often eat/i)).not.toBeInTheDocument();
+  });
+
+  it('toggles Consumer and searches crib without FDA classification or status', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn().mockImplementation((url) => {
+      const href = String(url);
+      if (href.includes('/api/personas')) {
+        return Promise.resolve({ ok: true, json: async () => ({ personas: [] }) });
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({
+          total: 1,
+          source: href.includes('source=consumer') ? 'consumer' : 'food',
+          results: [
+            {
+              id: 'cpsc-26669',
+              firm: 'Voomf',
+              product: 'Crib mattress',
+              reason: 'Entrapment',
+              classification: 'Consumer Product',
+              recallDate: '20260806',
+              source: 'consumer',
+              imageUrl: 'https://www.cpsc.gov/s3fs-public/crib.jpg',
+              imageAlt: 'Crib',
+            },
+          ],
+        }),
+      });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<App />);
+    await user.click(screen.getByRole('button', { name: 'Consumer' }));
+    expect(screen.queryByLabelText(/classification/i)).not.toBeInTheDocument();
+
+    await user.type(screen.getByRole('searchbox'), 'crib');
+    await user.click(
+      within(screen.getByRole('searchbox').closest('form')).getByRole('button', {
+        name: /search/i,
+      }),
+    );
+
+    expect(await screen.findByText('Voomf')).toBeInTheDocument();
+    expect(screen.getByText('CPSC')).toBeInTheDocument();
+    const searchUrls = fetchMock.mock.calls
+      .map((call) => String(call[0]))
+      .filter((href) => href.includes('/api/recalls') && href.includes('q=crib'));
+    expect(searchUrls.length).toBeGreaterThan(0);
+    expect(searchUrls.every((href) => href.includes('source=consumer'))).toBe(true);
+    expect(searchUrls.some((href) => href.includes('classification='))).toBe(false);
+    expect(searchUrls.some((href) => href.includes('status='))).toBe(false);
   });
 });

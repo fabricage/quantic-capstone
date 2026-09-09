@@ -2,7 +2,7 @@
  * RecallImage.test.jsx
  * Purpose: FDA food recalls get a category SVG chosen from the product text.
  */
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import RecallImage from '../components/RecallImage.jsx';
 
@@ -23,10 +23,41 @@ describe('RecallImage', () => {
     expect(img.getAttribute('alt')).toMatch(/formula/i);
   });
 
-  it('does not render an image for non-food sources', () => {
+  it('renders nothing when the source is consumer and imageUrl is empty', () => {
     const { container } = render(
-      <RecallImage recall={{ source: 'consumer', product: 'Crib' }} />,
+      <RecallImage recall={{ source: 'consumer', product: 'Crib', imageUrl: '' }} />,
     );
+    expect(container.querySelector('img')).toBeNull();
+  });
+
+  it('uses the CPSC photo when consumer imageUrl is present', () => {
+    render(
+      <RecallImage
+        recall={{
+          source: 'consumer',
+          product: 'Crib',
+          imageUrl: 'https://www.cpsc.gov/s3fs-public/crib.jpg',
+          imageAlt: 'Recalled crib',
+        }}
+      />,
+    );
+    const img = screen.getByRole('img');
+    expect(img).toHaveAttribute('src', 'https://www.cpsc.gov/s3fs-public/crib.jpg');
+    expect(img).toHaveAttribute('alt', 'Recalled crib');
+  });
+
+  it('hides a consumer photo that fails to load', () => {
+    const { container } = render(
+      <RecallImage
+        recall={{
+          source: 'consumer',
+          product: 'Crib',
+          imageUrl: 'https://www.cpsc.gov/s3fs-public/missing.jpg',
+          imageAlt: 'Missing',
+        }}
+      />,
+    );
+    fireEvent.error(screen.getByRole('img'));
     expect(container.querySelector('img')).toBeNull();
   });
 

@@ -49,6 +49,9 @@ export default function RecallCard({ recall, onSelect, saved = false, onToggleSa
         {reason ? <p className="recall-card-reason">{reason}</p> : null}
         {why ? <p className="recall-card-why">{why}</p> : null}
         <p className="recall-card-meta">
+          <span className="recall-source-badge">
+            {recall.source === 'consumer' ? 'CPSC' : 'FDA'}
+          </span>
           <span>{recall.classification}</span>
           <time dateTime={recall.recallDate}>{formatRecallDate(recall.recallDate)}</time>
         </p>

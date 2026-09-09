@@ -54,8 +54,10 @@ export default function RecallDetail({ recall, onBack, onSave, saved = false }) 
   }
 
   const sparse = isSparseRecall(recall);
-  const showCategoryCue = !recall.imageUrl;
+  const isConsumer = recall.source === 'consumer';
+  const showCategoryCue = !isConsumer && !recall.imageUrl;
   const categoryId = matchCategory(recall.product);
+  const sourceLabel = isConsumer ? 'CPSC consumer product' : 'FDA food';
 
   return (
     <article className="recall-detail">
@@ -73,16 +75,23 @@ export default function RecallDetail({ recall, onBack, onSave, saved = false }) 
         </button>
       </div>
 
-      {showCategoryCue ? (
+      {isConsumer && recall.imageUrl ? (
+        <figure className="recall-detail-figure">
+          <RecallImage recall={recall} className="recall-detail-image" />
+          {recall.imageAlt ? <figcaption>{recall.imageAlt}</figcaption> : null}
+        </figure>
+      ) : null}
+      {!isConsumer && showCategoryCue ? (
         <figure className="recall-detail-figure">
           <RecallImage recall={recall} className="recall-detail-image" />
           <figcaption>
             Category illustration — {categoryImageAlt(recall.product)} ({categoryId})
           </figcaption>
         </figure>
-      ) : (
+      ) : null}
+      {!isConsumer && !showCategoryCue ? (
         <RecallImage recall={recall} className="recall-detail-image" />
-      )}
+      ) : null}
 
       <h2 className="recall-detail-title">{recall.product || 'Untitled recall'}</h2>
 
@@ -93,6 +102,7 @@ export default function RecallDetail({ recall, onBack, onSave, saved = false }) 
       ) : null}
 
       <dl className="recall-detail-fields">
+        <Field label="Source" value={sourceLabel} />
         <Field label="Firm" value={recall.firm} />
         <Field label="Classification" value={recall.classification} />
         <Field label="Status" value={recall.status} />

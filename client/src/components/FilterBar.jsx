@@ -7,7 +7,12 @@ import { EMPTY_FILTERS } from '../lib/filters.js';
 const CLASSIFICATIONS = ['Class I', 'Class II', 'Class III'];
 const STATUSES = ['Ongoing', 'Completed', 'Terminated'];
 
-export default function FilterBar({ filters, onChange, dateRangeError = false }) {
+export default function FilterBar({
+  filters,
+  onChange,
+  dateRangeError = false,
+  source = 'food',
+}) {
   function update(patch) {
     onChange({ ...filters, ...patch });
   }
@@ -17,37 +22,41 @@ export default function FilterBar({ filters, onChange, dateRangeError = false })
       <legend>Filters</legend>
 
       <div className="filter-row">
-        <label htmlFor="filter-classification">
-          Classification
-          <select
-            id="filter-classification"
-            value={filters.classification}
-            onChange={(event) => update({ classification: event.target.value })}
-          >
-            <option value="">Any</option>
-            {CLASSIFICATIONS.map((value) => (
-              <option key={value} value={value}>
-                {value}
-              </option>
-            ))}
-          </select>
-        </label>
+        {source === 'consumer' ? null : (
+          <>
+            <label htmlFor="filter-classification">
+              Classification
+              <select
+                id="filter-classification"
+                value={filters.classification}
+                onChange={(event) => update({ classification: event.target.value })}
+              >
+                <option value="">Any</option>
+                {CLASSIFICATIONS.map((value) => (
+                  <option key={value} value={value}>
+                    {value}
+                  </option>
+                ))}
+              </select>
+            </label>
 
-        <label htmlFor="filter-status">
-          Status
-          <select
-            id="filter-status"
-            value={filters.status}
-            onChange={(event) => update({ status: event.target.value })}
-          >
-            <option value="">Any</option>
-            {STATUSES.map((value) => (
-              <option key={value} value={value}>
-                {value}
-              </option>
-            ))}
-          </select>
-        </label>
+            <label htmlFor="filter-status">
+              Status
+              <select
+                id="filter-status"
+                value={filters.status}
+                onChange={(event) => update({ status: event.target.value })}
+              >
+                <option value="">Any</option>
+                {STATUSES.map((value) => (
+                  <option key={value} value={value}>
+                    {value}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </>
+        )}
 
         <label htmlFor="filter-date-from">
           From
