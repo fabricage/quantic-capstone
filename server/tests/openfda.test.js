@@ -2,8 +2,8 @@
  * openfda.test.js
  * Purpose: Unit tests for openFDA date parsing and keyword query building.
  */
-import { describe, expect, it } from 'vitest';
-import { buildSearchQuery, formatKeyword, toOpenFdaDate } from '../lib/openfda.js';
+import { describe, expect, it, vi } from 'vitest';
+import { buildSearchQuery, fetchRecallingFirmCounts, formatKeyword, toOpenFdaDate } from '../lib/openfda.js';
 
 describe('toOpenFdaDate', () => {
   it('passes through compact YYYYMMDD', () => {
@@ -87,6 +87,46 @@ describe('buildSearchQuery / formatKeyword', () => {
     );
     expect(buildSearchQuery({ q: 'milk', location: 'mexico' })).toBe(
       '(product_description:milk OR recalling_firm:milk)',
+    );
+  });
+});
+
+describe('fetchRecallingFirmCounts', () => {
+  it('calls count=recalling_firm.exact with a report_date window', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        results: [
+          { term: 'Acme Foods Inc', count: 12 },
+          { term: 'Dairy Co', count: 4 },
+        ],
+      }),
+    });
+
+    const rows = await fetchRecallingFirmCounts(
+      { dateFrom: '2021-09-09', dateTo: '2026-09-09', limit: 40 },
+      fetchImpl,
+    );
+
+    expect(rows).toEqual([
+      { term: 'Acme Foods Inc', count: 12 },
+      { term: 'Dairy Co', count: 4 },
+    ]);
+    const calledUrl = new URL(String(fetchImpl.mock.calls[0][0]));
+    expect(calledUrl.searchParams.get('count')).toBe('recalling_firm.exact');
+    expect(calledUrl.searchParams.get('limit')).toBe('40');
+    expect(calledUrl.searchParams.get('search')).toBe('report_date:[20210909 TO 20260909]');
+  });
+
+  it('maps openFDA 404 to an empty list', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 404,
+      json: async () => ({ error: { code: 'NOT_FOUND' } }),
+    });
+    await expect(fetchRecallingFirmCounts({ dateFrom: '2024-01-01' }, fetchImpl)).resolves.toEqual(
+      [],
     );
   });
 });

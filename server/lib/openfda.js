@@ -121,6 +121,40 @@ function httpError(message, statusCode) {
 }
 
 /**
+ * Count recalling firms with `count=recalling_firm.exact`.
+ * Why: `.exact` keeps multi-word names as one term ("Acme Foods Inc")
+ * instead of splitting on spaces. 404 means no matches → [].
+ */
+export async function fetchRecallingFirmCounts(
+  { dateFrom = '', dateTo = '', limit = 100 } = {},
+  fetchImpl = fetch,
+) {
+  const url = new URL(OPENFDA_BASE);
+  const size = Number.parseInt(limit, 10);
+  url.searchParams.set('count', 'recalling_firm.exact');
+  url.searchParams.set('limit', String(Number.isNaN(size) ? 100 : Math.min(1000, Math.max(1, size))));
+
+  const from = toOpenFdaDate(dateFrom);
+  const to = toOpenFdaDate(dateTo);
+  if (from || to) {
+    const start = from || '19000101';
+    const end = to || '21000101';
+    url.searchParams.set('search', `report_date:[${start} TO ${end}]`);
+  }
+
+  const response = await fetchImpl(url.toString());
+  if (response.status === 404) {
+    return [];
+  }
+  if (!response.ok) {
+    throw httpError(`openFDA count request failed (${response.status})`, response.status);
+  }
+
+  const data = await response.json();
+  return Array.isArray(data.results) ? data.results : [];
+}
+
+/**
  * Fetch food-enforcement records from openFDA.
  * Why: sort by report_date (FDA publication date), not recall_initiation_date —
  * initiation can predate the weekly Enforcement Report and makes "latest" look stale.
