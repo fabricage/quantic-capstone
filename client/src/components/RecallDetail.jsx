@@ -3,7 +3,7 @@
  * Purpose: Full-text view of one normalized recall. No extra fetch — same object as the card.
  */
 import { useEffect } from 'react';
-import { categoryImageAlt, matchCategory } from '../lib/categoryImage.js';
+import { matchCategory } from '../lib/categoryImage.js';
 import { formatRecallDate } from '../lib/dates.js';
 import { originFieldLabel, originShortLabel } from '../lib/originLabels.js';
 import RecallImage from './RecallImage.jsx';
@@ -78,20 +78,18 @@ export default function RecallDetail({ recall, onBack, onSave, saved = false }) 
 
       {isConsumer && recall.imageUrl ? (
         <figure className="recall-detail-figure">
-          <RecallImage recall={recall} className="recall-detail-image" />
+          <RecallImage recall={recall} className="recall-detail-image" size="detail" />
           {recall.imageAlt ? <figcaption>{recall.imageAlt}</figcaption> : null}
         </figure>
       ) : null}
       {!isConsumer && showCategoryCue ? (
         <figure className="recall-detail-figure">
-          <RecallImage recall={recall} className="recall-detail-image" />
-          <figcaption>
-            Category illustration — {categoryImageAlt(recall.product)} ({categoryId})
-          </figcaption>
+          <RecallImage recall={recall} className="recall-detail-image" size="detail" />
+          <figcaption>Category mark — {categoryId}</figcaption>
         </figure>
       ) : null}
       {!isConsumer && !showCategoryCue ? (
-        <RecallImage recall={recall} className="recall-detail-image" />
+        <RecallImage recall={recall} className="recall-detail-image" size="detail" />
       ) : null}
 
       <h2 className="recall-detail-title">{recall.product || 'Untitled recall'}</h2>

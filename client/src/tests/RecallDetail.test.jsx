@@ -120,6 +120,7 @@ describe('RecallDetail', () => {
     expect(screen.getByText('Manufacturer country')).toBeInTheDocument();
     expect(screen.getByText('China')).toBeInTheDocument();
     expect(screen.queryByText(/category illustration/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/category mark/i)).not.toBeInTheDocument();
   });
 
   it('shows an FDA category illustration and caption when imageUrl is empty', () => {
@@ -132,7 +133,7 @@ describe('RecallDetail', () => {
     );
     const img = screen.getByRole('img');
     expect(img).toHaveAttribute('src', '/category-images/formula.svg');
-    expect(screen.getByText(/category illustration/i)).toBeInTheDocument();
+    expect(screen.getByText(/category mark — formula/i)).toBeInTheDocument();
     expect(screen.getByText('Recalling-firm country')).toBeInTheDocument();
     expect(screen.getByText('USA')).toBeInTheDocument();
   });
