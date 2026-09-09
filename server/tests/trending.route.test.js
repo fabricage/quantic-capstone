@@ -5,7 +5,8 @@
 import request from 'supertest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createApp } from '../index.js';
-import { TRENDING_CACHE_KEY, trendingCache } from '../routes/trending.js';
+import { TRENDING_CACHE_KEY, trendingCache, trendingCacheKey } from '../routes/trending.js';
+import { publicLookbackWindows } from '../lib/suggestedSearches.js';
 import { websiteCache } from '../lib/websiteCache.js';
 
 afterEach(() => {
@@ -80,6 +81,12 @@ function trendingFetch() {
   });
 }
 
+function suggestionPhrases(group) {
+  return (group?.suggestions || []).map((item) =>
+    typeof item === 'string' ? item : item.phrase,
+  );
+}
+
 describe('GET /api/trending-searches', () => {
   it('returns grouped FDA and CPSC frequency chips', async () => {
     const fetchImpl = trendingFetch();
@@ -89,11 +96,18 @@ describe('GET /api/trending-searches', () => {
     expect(res.status).toBe(200);
     expect(res.headers['cache-control']).toBe('no-store');
     expect(res.body.label).toMatch(/companies with the most recalls/i);
+    expect(res.body.window).toBe('1y');
+    expect(res.body.windows).toEqual(publicLookbackWindows());
     expect(res.body.suggestions).toEqual([]);
     expect(res.body.groups.map((group) => group.source)).toEqual(['food', 'consumer']);
-    expect(res.body.groups[0].suggestions).toContain('Acme Foods Inc');
-    expect(res.body.groups[1].suggestions).toContain('Voomf of China');
-    expect(res.body.groups[1].suggestions.some((phrase) => /amazon/i.test(phrase))).toBe(false);
+    expect(suggestionPhrases(res.body.groups[0])).toContain('Acme Foods Inc');
+    expect(res.body.groups[0].suggestions).toEqual(
+      expect.arrayContaining([expect.objectContaining({ phrase: 'Acme Foods Inc', count: 40 })]),
+    );
+    expect(suggestionPhrases(res.body.groups[1])).toContain('Voomf of China');
+    expect(suggestionPhrases(res.body.groups[1]).some((phrase) => /amazon/i.test(phrase))).toBe(
+      false,
+    );
 
     const fdaUrls = fetchImpl.mock.calls.map((call) => String(call[0]));
     expect(fdaUrls.some((href) => href.includes('count=recalling_firm.exact'))).toBe(true);
@@ -102,8 +116,47 @@ describe('GET /api/trending-searches', () => {
   it('puts website-fresh firms first in each group', async () => {
     const app = createApp({ fetchImpl: trendingFetch() });
     const res = await request(app).get('/api/trending-searches');
-    expect(res.body.groups[0].suggestions[0]).toBe('FreshPoint');
-    expect(res.body.groups[1].suggestions[0]).toBe('Truststone Group');
+    expect(res.body.groups[0].suggestions[0]).toEqual(
+      expect.objectContaining({ phrase: 'FreshPoint' }),
+    );
+    expect(res.body.groups[1].suggestions[0]).toEqual(
+      expect.objectContaining({ phrase: 'Truststone Group' }),
+    );
+  });
+
+  it('uses a ~30-day FDA report_date window for ?window=1m', async () => {
+    const fetchImpl = trendingFetch();
+    const app = createApp({ fetchImpl });
+    const res = await request(app).get('/api/trending-searches?window=1m');
+    expect(res.body.window).toBe('1m');
+
+    const fdaUrl = decodeURIComponent(
+      fetchImpl.mock.calls
+        .map((call) => String(call[0]))
+        .find((href) => href.includes('count=recalling_firm.exact'))
+        .replace(/\+/g, ' '),
+    );
+    expect(fdaUrl).toMatch(/report_date:\[\d{8} TO \d{8}\]/);
+    const [, start, end] = fdaUrl.match(/report_date:\[(\d{8}) TO (\d{8})\]/);
+    const fromMs = Date.UTC(
+      Number(start.slice(0, 4)),
+      Number(start.slice(4, 6)) - 1,
+      Number(start.slice(6, 8)),
+    );
+    const toMs = Date.UTC(
+      Number(end.slice(0, 4)),
+      Number(end.slice(4, 6)) - 1,
+      Number(end.slice(6, 8)),
+    );
+    const days = (toMs - fromMs) / 86400000;
+    expect(days).toBeGreaterThanOrEqual(28);
+    expect(days).toBeLessThanOrEqual(32);
+  });
+
+  it('falls back to 1 year when window is unknown', async () => {
+    const app = createApp({ fetchImpl: trendingFetch() });
+    const res = await request(app).get('/api/trending-searches?window=nope');
+    expect(res.body.window).toBe('1y');
   });
 
   it('serves the cached payload on a second request', async () => {
@@ -119,6 +172,16 @@ describe('GET /api/trending-searches', () => {
     expect(fetchImpl.mock.calls.length).toBe(callsAfterFirst);
   });
 
+  it('does not reuse the 1-year cache for a 1-month window', async () => {
+    const fetchImpl = trendingFetch();
+    const app = createApp({ fetchImpl });
+    await request(app).get('/api/trending-searches');
+    const afterDefault = fetchImpl.mock.calls.length;
+    await request(app).get('/api/trending-searches?window=1m');
+    expect(fetchImpl.mock.calls.length).toBeGreaterThan(afterDefault);
+    expect(trendingCache.get(trendingCacheKey('1m'))).toBeTruthy();
+  });
+
   it('returns an empty chip payload when every upstream fails', async () => {
     const fetchImpl = vi.fn().mockRejectedValue(new Error('network down'));
     const app = createApp({ fetchImpl });
@@ -126,6 +189,8 @@ describe('GET /api/trending-searches', () => {
     expect(res.status).toBe(200);
     expect(res.body).toEqual({
       label: 'Companies with the most recalls',
+      window: '1y',
+      windows: publicLookbackWindows(),
       groups: [],
       suggestions: [],
     });

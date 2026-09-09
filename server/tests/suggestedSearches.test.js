@@ -11,6 +11,8 @@ import {
   daysAgoDate,
   isUsableFirmPhrase,
   phraseFromFirm,
+  publicLookbackWindows,
+  resolveLookbackWindow,
 } from '../lib/suggestedSearches.js';
 
 describe('daysAgoDate', () => {
@@ -19,6 +21,24 @@ describe('daysAgoDate', () => {
     expect(daysAgoDate(0, now)).toBe('2026-09-09');
     expect(daysAgoDate(1, now)).toBe('2026-09-08');
     expect(daysAgoDate(365, now)).toBe('2025-09-09');
+  });
+});
+
+describe('resolveLookbackWindow', () => {
+  it('maps 1m/3m/1y/5y and falls back to 1 year', () => {
+    expect(resolveLookbackWindow('1m')).toMatchObject({ id: '1m', days: 30 });
+    expect(resolveLookbackWindow('3m')).toMatchObject({ id: '3m', days: 90 });
+    expect(resolveLookbackWindow('5y').days).toBe(5 * 365);
+    expect(resolveLookbackWindow('nope').id).toBe('1y');
+    expect(resolveLookbackWindow('').id).toBe('1y');
+    expect(publicLookbackWindows().map((row) => row.id)).toEqual([
+      '1m',
+      '3m',
+      '6m',
+      '1y',
+      '2y',
+      '5y',
+    ]);
   });
 });
 
@@ -75,8 +95,8 @@ describe('buildSuggestedSearchGroups', () => {
     expect(payload.groups).toHaveLength(2);
     expect(payload.groups[0]).toMatchObject({ id: 'food', source: 'food', label: 'FDA food' });
     expect(payload.groups[0].suggestions).toHaveLength(SUGGESTED_PER_SOURCE);
-    expect(payload.groups[0].suggestions[0]).toBe('Food Firm 1');
-    expect(payload.groups[1].suggestions).toEqual(['Acme Toys']);
+    expect(payload.groups[0].suggestions[0]).toEqual({ phrase: 'Food Firm 1', count: 20 });
+    expect(payload.groups[1].suggestions).toEqual([{ phrase: 'Acme Toys', count: 3 }]);
   });
 
   it('prepends website-fresh firms ahead of the frequency list', () => {
@@ -90,11 +110,11 @@ describe('buildSuggestedSearchGroups', () => {
       recentConsumerFirms: ['Truststone Group'],
     });
     expect(payload.groups[0].suggestions.slice(0, 3)).toEqual([
-      'FreshPoint',
-      'Acme Foods Inc',
-      'Dairy Co',
+      { phrase: 'FreshPoint', count: 0 },
+      { phrase: 'Acme Foods Inc', count: 40 },
+      { phrase: 'Dairy Co', count: 12 },
     ]);
-    expect(payload.groups[1].suggestions[0]).toBe('Truststone Group');
-    expect(payload.groups[1].suggestions).toContain('Voomf');
+    expect(payload.groups[1].suggestions[0]).toEqual({ phrase: 'Truststone Group', count: 0 });
+    expect(payload.groups[1].suggestions.map((row) => row.phrase)).toContain('Voomf');
   });
 });

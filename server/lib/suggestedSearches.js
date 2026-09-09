@@ -3,17 +3,54 @@
  * Purpose: Turn FDA firm counts + CPSC samples into 8 chips per source.
  *
  * Website-fresh firms (press-release / listing HTML) are prepended so a
- * company that just posted is visible even if it is not yet in the 5-year
- * frequency tally. CPSC has no count= aggregation — we tally names ourselves.
+ * company that just posted is visible even if it is not yet in the
+ * frequency tally for the selected lookback window. CPSC has no count=
+ * aggregation — we tally names ourselves.
+ *
+ * Each chip is `{ phrase, count }` so the UI can show how many recalls
+ * that firm has in the window.
  *
  * Lesson: CPSC retailer strings like "Online at Amazon.com from September
  * 2024…" are not company names. isUsableFirmPhrase drops them.
  */
 
 export const SUGGESTED_PER_SOURCE = 8;
-export const FIRM_COUNT_LOOKBACK_DAYS = 5 * 365;
 export const SUGGESTED_LABEL = 'Companies with the most recalls';
 export const MAX_FIRM_PHRASE_LENGTH = 36;
+
+/**
+ * Chip lookback windows. `days` is how far back we ask FDA/CPSC to count.
+ * Default is 1 year so "most recalls" feels current, not a 5-year all-time list.
+ */
+export const LOOKBACK_WINDOWS = [
+  { id: '1m', label: '1 month', days: 30 },
+  { id: '3m', label: '3 months', days: 90 },
+  { id: '6m', label: '6 months', days: 182 },
+  { id: '1y', label: '1 year', days: 365 },
+  { id: '2y', label: '2 years', days: 730 },
+  { id: '5y', label: '5 years', days: 5 * 365 },
+];
+export const DEFAULT_LOOKBACK_WINDOW = '1y';
+
+/** Days for the old 5-year tally — kept as an alias of the 5y window. */
+export const FIRM_COUNT_LOOKBACK_DAYS = LOOKBACK_WINDOWS.find((row) => row.id === '5y').days;
+
+/**
+ * Public window list for the client (id + label only).
+ */
+export function publicLookbackWindows() {
+  return LOOKBACK_WINDOWS.map(({ id, label }) => ({ id, label }));
+}
+
+/**
+ * Map a query string like "3m" to a known window. Unknown values fall back to 1 year.
+ */
+export function resolveLookbackWindow(raw) {
+  const id = String(raw ?? '')
+    .trim()
+    .toLowerCase();
+  return LOOKBACK_WINDOWS.find((row) => row.id === id) || LOOKBACK_WINDOWS.find((row) => row.id === DEFAULT_LOOKBACK_WINDOW);
+}
 
 const MONTHS =
   'january|february|march|april|may|june|july|august|september|october|november|december';
@@ -142,22 +179,44 @@ function phrasesFromRecentFirms(list) {
   return phrases;
 }
 
+/**
+ * Website-fresh names first, then highest counts. Each chip is
+ * `{ phrase, count }` so the UI can show how many recalls that firm has.
+ * A website-only name keeps count 0 until it also appears in the tally.
+ */
 function mergeFirmPhrases(recentFirms, counts) {
   const seen = new Set();
-  const phrases = [];
+  const items = [];
   const frequency = asCountRows(counts)
-    .sort((a, b) => b.count - a.count || a.term.localeCompare(b.term))
-    .map((row) => phraseFromFirm(row.term))
-    .filter(isUsableFirmPhrase);
+    .map((row) => ({
+      phrase: phraseFromFirm(row.term),
+      count: row.count,
+    }))
+    .filter((row) => isUsableFirmPhrase(row.phrase))
+    .sort((a, b) => b.count - a.count || a.phrase.localeCompare(b.phrase));
 
-  for (const phrase of [...phrasesFromRecentFirms(recentFirms), ...frequency]) {
-    const key = phrase.toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
-    phrases.push(phrase);
-    if (phrases.length >= SUGGESTED_PER_SOURCE) break;
+  const countByKey = new Map();
+  for (const row of frequency) {
+    const key = row.phrase.toLowerCase();
+    if (!countByKey.has(key)) countByKey.set(key, row.count);
   }
-  return phrases;
+
+  function push(phrase, count) {
+    const key = phrase.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    items.push({ phrase, count: Number.isFinite(count) ? count : 0 });
+  }
+
+  for (const phrase of phrasesFromRecentFirms(recentFirms)) {
+    push(phrase, countByKey.get(phrase.toLowerCase()) ?? 0);
+    if (items.length >= SUGGESTED_PER_SOURCE) return items;
+  }
+  for (const row of frequency) {
+    push(row.phrase, row.count);
+    if (items.length >= SUGGESTED_PER_SOURCE) break;
+  }
+  return items;
 }
 
 function sourceGroup(id, label, source, suggestions) {
@@ -191,9 +250,12 @@ export function buildSuggestedSearchGroups({
   };
 }
 
-export function emptySuggestedSearchPayload() {
+export function emptySuggestedSearchPayload(windowId = DEFAULT_LOOKBACK_WINDOW) {
+  const window = resolveLookbackWindow(windowId);
   return {
     label: SUGGESTED_LABEL,
+    window: window.id,
+    windows: publicLookbackWindows(),
     groups: [],
     suggestions: [],
   };

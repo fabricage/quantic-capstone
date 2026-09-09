@@ -65,15 +65,30 @@ export async function searchRecalls(
   }
 }
 
-const EMPTY_SUGGESTED_SEARCHES = { label: '', groups: [], suggestions: [] };
+const EMPTY_SUGGESTED_SEARCHES = { label: '', groups: [], suggestions: [], window: '', windows: [] };
 
 /**
  * Company chips from the BFF. Soft-fails to empty groups so a down
  * trending endpoint never blanks the search form.
+ *
+ * First argument may be `fetch` (older tests) or `{ windowId, fetchImpl }`.
  */
-export async function fetchSuggestedSearches(fetchImpl = fetch) {
+export async function fetchSuggestedSearches(fetchOrOptions = fetch) {
+  const options =
+    typeof fetchOrOptions === 'function'
+      ? { fetchImpl: fetchOrOptions }
+      : fetchOrOptions && typeof fetchOrOptions === 'object'
+        ? fetchOrOptions
+        : {};
+  const fetchImpl = options.fetchImpl ?? fetch;
+  const windowId = options.windowId ? String(options.windowId) : '';
   try {
-    const response = await fetchImpl(apiUrl('/api/trending-searches'));
+    const params = new URLSearchParams();
+    if (windowId) params.set('window', windowId);
+    const query = params.toString();
+    const response = await fetchImpl(
+      apiUrl(query ? `/api/trending-searches?${query}` : '/api/trending-searches'),
+    );
     if (!response?.ok) return EMPTY_SUGGESTED_SEARCHES;
     const data = await response.json();
     const groups = Array.isArray(data?.groups) ? data.groups : [];
@@ -81,6 +96,8 @@ export async function fetchSuggestedSearches(fetchImpl = fetch) {
       label: typeof data?.label === 'string' ? data.label : '',
       groups,
       suggestions: Array.isArray(data?.suggestions) ? data.suggestions : [],
+      window: typeof data?.window === 'string' ? data.window : windowId,
+      windows: Array.isArray(data?.windows) ? data.windows : [],
     };
   } catch {
     return EMPTY_SUGGESTED_SEARCHES;

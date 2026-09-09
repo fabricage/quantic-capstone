@@ -95,6 +95,21 @@ describe('fetchSuggestedSearches', () => {
       label: '',
       groups: [],
       suggestions: [],
+      window: '',
+      windows: [],
     });
+  });
+
+  it('forwards the lookback window onto /api/trending-searches', async () => {
+    vi.stubEnv('VITE_API_BASE_URL', '');
+    vi.resetModules();
+    const { fetchSuggestedSearches } = await import('../api.js');
+    const fetchImpl = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ label: '', groups: [], suggestions: [], window: '3m', windows: [] }),
+    });
+    await fetchSuggestedSearches({ windowId: '3m', fetchImpl });
+    expect(String(fetchImpl.mock.calls[0][0])).toContain('/api/trending-searches');
+    expect(String(fetchImpl.mock.calls[0][0])).toContain('window=3m');
   });
 });

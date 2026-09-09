@@ -661,6 +661,61 @@ describe('App', () => {
     ).toBeInTheDocument();
   });
 
+  it('refetches company chips when the lookback window changes', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn().mockImplementation((url) => {
+      const href = String(url);
+      if (href.includes('/api/trending-searches')) {
+        const isMonth = href.includes('window=1m');
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            label: 'Companies with the most recalls',
+            window: isMonth ? '1m' : '1y',
+            windows: [
+              { id: '1m', label: '1 month' },
+              { id: '1y', label: '1 year' },
+            ],
+            groups: [
+              {
+                id: 'food',
+                label: 'FDA food',
+                source: 'food',
+                suggestions: [
+                  {
+                    phrase: isMonth ? 'Short Window Foods' : 'Year Foods',
+                    count: isMonth ? 2 : 40,
+                  },
+                ],
+              },
+            ],
+            suggestions: [],
+          }),
+        });
+      }
+      if (href.includes('/api/personas')) {
+        return Promise.resolve({ ok: true, json: async () => ({ personas: [] }) });
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ total: 0, source: 'food', results: [] }),
+      });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<App />);
+    expect(await screen.findByRole('button', { name: /year foods, 40 recalls/i })).toBeInTheDocument();
+    await user.click(screen.getByRole('radio', { name: '1 month' }));
+    expect(
+      await screen.findByRole('button', { name: /short window foods, 2 recalls/i }),
+    ).toBeInTheDocument();
+    const trendingUrls = fetchMock.mock.calls
+      .map((call) => String(call[0]))
+      .filter((href) => href.includes('/api/trending-searches'));
+    expect(trendingUrls.some((href) => href.includes('window=1y'))).toBe(true);
+    expect(trendingUrls.some((href) => href.includes('window=1m'))).toBe(true);
+  });
+
   it('shows a friendly search error without raw exception text', async () => {
     const user = userEvent.setup();
     const fetchMock = vi.fn().mockImplementation((url) => {
