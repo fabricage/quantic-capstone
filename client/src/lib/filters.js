@@ -1,6 +1,6 @@
 /**
  * filters.js
- * Purpose: Shared filter helpers for the FDA food search UI (no location yet).
+ * Purpose: Shared filter helpers for search (classification, status, dates, location).
  */
 
 export const EMPTY_FILTERS = {
@@ -8,6 +8,7 @@ export const EMPTY_FILTERS = {
   status: '',
   dateFrom: '',
   dateTo: '',
+  location: '',
 };
 
 /**
@@ -24,6 +25,7 @@ export function hasActiveFilters(filters = {}) {
     filters.classification ||
       filters.status ||
       filters.dateFrom ||
-      filters.dateTo,
+      filters.dateTo ||
+      filters.location,
   );
 }

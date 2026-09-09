@@ -3,6 +3,7 @@
  * Purpose: Map openFDA food and CPSC consumer records onto the shared recall shape.
  */
 import { cpscSortDate } from './cpscDates.js';
+import { originFromCpscRecord, originFromFdaRecord } from './location.js';
 
 /**
  * Compact a date to YYYYMMDD, or '' when it is missing/invalid.
@@ -99,8 +100,8 @@ export function normalizeRecall(raw) {
     url: '',
     imageUrl: '',
     imageAlt: '',
-    country: '',
-    origin: '',
+    country: text(record.country),
+    origin: originFromFdaRecord(record),
   };
 }
 
@@ -129,6 +130,10 @@ export function normalizeConsumerRecall(raw) {
   const announced = toRecallDate(record.RecallDate);
   const publishedRaw = toRecallDate(record.LastPublishDate);
   const photo = firstCpscImage(record.Images);
+  const origin = originFromCpscRecord(record);
+  const countryText = Array.isArray(record.ManufacturerCountries)
+    ? text(record.ManufacturerCountries[0]?.Country || record.ManufacturerCountries[0]?.Name || record.ManufacturerCountries[0] || '')
+    : '';
 
   return {
     id: `cpsc-${number || recallId}`,
@@ -147,8 +152,8 @@ export function normalizeConsumerRecall(raw) {
     url: text(record.URL || record.RecallURL),
     imageUrl: photo.imageUrl,
     imageAlt: photo.imageAlt,
-    country: '',
-    origin: '',
+    country: countryText,
+    origin,
   };
 }
 
@@ -160,6 +165,82 @@ export function normalizeConsumerRecalls(rows) {
 /**
  * Newest first: publishedDate, then recallDate, then a stable id.
  */
+function normalizeMergeUrl(url) {
+  return String(url ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[?#].*$/, '')
+    .replace(/\/+$/, '');
+}
+
+function normalizeMergeTitle(title) {
+  return String(title ?? '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+function findApiTwin(websiteRow, apiRows) {
+  const url = normalizeMergeUrl(websiteRow.url);
+  const title = normalizeMergeTitle(websiteRow.product);
+  return apiRows.find((row) => {
+    if (url && normalizeMergeUrl(row.url) && normalizeMergeUrl(row.url) === url) return true;
+    if (title && normalizeMergeTitle(row.product) === title) return true;
+    return false;
+  });
+}
+
+/**
+ * Website-first merge. De-dupe by normalized URL and product title.
+ * When a website row lacks a photo, copy image/firm/reason/country from the API twin.
+ */
+export function mergeRecallLists(website = [], api = []) {
+  const webRows = Array.isArray(website) ? website : [];
+  const apiRows = Array.isArray(api) ? api : [];
+  const merged = [];
+  const seenUrls = new Set();
+  const seenTitles = new Set();
+
+  function mark(row) {
+    const url = normalizeMergeUrl(row.url);
+    const title = normalizeMergeTitle(row.product);
+    if (url) seenUrls.add(url);
+    if (title) seenTitles.add(title);
+  }
+
+  function alreadySeen(row) {
+    const url = normalizeMergeUrl(row.url);
+    const title = normalizeMergeTitle(row.product);
+    if (url && seenUrls.has(url)) return true;
+    if (title && seenTitles.has(title)) return true;
+    return false;
+  }
+
+  for (const web of webRows) {
+    const twin = findApiTwin(web, apiRows);
+    const row = { ...web };
+    if (twin && !row.imageUrl) {
+      row.imageUrl = twin.imageUrl || '';
+      row.imageAlt = twin.imageAlt || '';
+      if (!row.firm) row.firm = twin.firm || '';
+      if (!row.reason) row.reason = twin.reason || '';
+      if (!row.country) row.country = twin.country || '';
+      if (!row.origin) row.origin = twin.origin || '';
+    }
+    merged.push(row);
+    mark(row);
+  }
+
+  for (const apiRow of apiRows) {
+    if (alreadySeen(apiRow)) continue;
+    merged.push(apiRow);
+  }
+
+  return merged;
+}
+
+export const mergeConsumerRecalls = mergeRecallLists;
+
 export function sortRecallsByDateDesc(recalls) {
   const list = Array.isArray(recalls) ? [...recalls] : [];
   return list.sort((a, b) => {

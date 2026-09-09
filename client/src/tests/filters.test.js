@@ -37,5 +37,6 @@ describe('hasActiveFilters', () => {
       true,
     );
     expect(hasActiveFilters({ ...EMPTY_FILTERS, dateTo: '2024-12-31' })).toBe(true);
+    expect(hasActiveFilters({ ...EMPTY_FILTERS, location: 'china' })).toBe(true);
   });
 });

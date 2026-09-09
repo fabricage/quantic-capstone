@@ -117,7 +117,7 @@ export default function App() {
         dateFrom: filters.dateFrom,
         dateTo: filters.dateTo,
         page,
-        location: '',
+        location: filters.location,
         source,
       },
     }).then((data) => {
@@ -147,6 +147,7 @@ export default function App() {
     filters.status,
     filters.dateFrom,
     filters.dateTo,
+    filters.location,
     page,
     source,
   ]);
@@ -185,6 +186,7 @@ export default function App() {
         dateFrom: requestFilters.dateFrom,
         dateTo: requestFilters.dateTo,
         source: nextSource,
+        location: requestFilters.location,
       });
       const totalCount = data.total ?? 0;
       const clamped = clampPage(requestedPage, totalCount, size);
@@ -198,6 +200,7 @@ export default function App() {
           dateFrom: requestFilters.dateFrom,
           dateTo: requestFilters.dateTo,
           source: nextSource,
+          location: requestFilters.location,
         });
       }
       setPage(clamped);

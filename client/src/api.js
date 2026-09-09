@@ -32,6 +32,7 @@ export async function searchRecalls(
     dateFrom = '',
     dateTo = '',
     source = '',
+    location = '',
   } = {},
   fetchImpl = fetch,
 ) {
@@ -44,6 +45,7 @@ export async function searchRecalls(
   if (dateFrom) params.set('dateFrom', dateFrom);
   if (dateTo) params.set('dateTo', dateTo);
   if (source) params.set('source', source);
+  if (location) params.set('location', location);
 
   const response = await fetchImpl(apiUrl(`/api/recalls?${params.toString()}`));
   if (!response.ok) {

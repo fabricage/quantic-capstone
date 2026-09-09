@@ -1,8 +1,9 @@
 /**
  * FilterBar.jsx
- * Purpose: Classification, status, and date-range controls. Location waits for Card 12.
+ * Purpose: Classification, status, date-range, and location (USA/China/Other).
  */
 import { EMPTY_FILTERS } from '../lib/filters.js';
+import { ORIGIN_OPTIONS } from '../lib/originLabels.js';
 
 const CLASSIFICATIONS = ['Class I', 'Class II', 'Class III'];
 const STATUSES = ['Ongoing', 'Completed', 'Terminated'];
@@ -76,6 +77,21 @@ export default function FilterBar({
             value={filters.dateTo}
             onChange={(event) => update({ dateTo: event.target.value })}
           />
+        </label>
+
+        <label htmlFor="filter-location">
+          Location
+          <select
+            id="filter-location"
+            value={filters.location || ''}
+            onChange={(event) => update({ location: event.target.value })}
+          >
+            {ORIGIN_OPTIONS.map((option) => (
+              <option key={option.value || 'any'} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
         </label>
 
         <button type="button" onClick={() => onChange({ ...EMPTY_FILTERS })}>

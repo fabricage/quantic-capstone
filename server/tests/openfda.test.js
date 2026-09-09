@@ -76,4 +76,17 @@ describe('buildSearchQuery / formatKeyword', () => {
       'recall_initiation_date:[19000101 TO 20240630]',
     );
   });
+
+  it('AND-joins the FDA country clause when location is set', () => {
+    expect(buildSearchQuery({ q: 'milk', location: 'usa' })).toBe(
+      '(product_description:milk OR recalling_firm:milk) AND country:"United States"',
+    );
+    expect(buildSearchQuery({ location: 'china' })).toBe('country:"China"');
+    expect(buildSearchQuery({ location: 'other' })).toBe(
+      '-country:"United States" AND -country:"China"',
+    );
+    expect(buildSearchQuery({ q: 'milk', location: 'mexico' })).toBe(
+      '(product_description:milk OR recalling_firm:milk)',
+    );
+  });
 });

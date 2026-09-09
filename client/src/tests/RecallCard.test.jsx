@@ -46,6 +46,20 @@ describe('RecallCard', () => {
     expect(screen.getByText('Often packed in a kids lunch.')).toBeInTheDocument();
   });
 
+  it('shows a location chip that names manufacturer vs recalling-firm country', () => {
+    render(
+      <RecallCard
+        recall={{
+          ...sampleRecall,
+          source: 'consumer',
+          origin: 'china',
+          classification: 'Consumer Product',
+        }}
+      />,
+    );
+    expect(screen.getByText('Manufacturer: China')).toBeInTheDocument();
+  });
+
   it('toggles save without opening detail', async () => {
     const user = userEvent.setup();
     const onSelect = vi.fn();

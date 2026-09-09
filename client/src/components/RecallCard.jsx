@@ -3,6 +3,7 @@
  * Purpose: One search-result card. Click or keyboard activates onSelect(recall).
  */
 import { formatRecallDate } from '../lib/dates.js';
+import { originLabel } from '../lib/originLabels.js';
 import { shortenProductTitle, shortenReason } from '../lib/textSnippets.js';
 import RecallImage from './RecallImage.jsx';
 
@@ -52,6 +53,9 @@ export default function RecallCard({ recall, onSelect, saved = false, onToggleSa
           <span className="recall-source-badge">
             {recall.source === 'consumer' ? 'CPSC' : 'FDA'}
           </span>
+          {originLabel(recall) ? (
+            <span className="recall-origin-chip">{originLabel(recall)}</span>
+          ) : null}
           <span>{recall.classification}</span>
           <time dateTime={recall.recallDate}>{formatRecallDate(recall.recallDate)}</time>
         </p>
