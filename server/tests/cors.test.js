@@ -26,11 +26,11 @@ describe('parseClientOrigins', () => {
   it('trims, splits, and strips trailing slashes', () => {
     expect(
       parseClientOrigins(
-        ' https://recall-ledger-web.onrender.com/ , https://other.onrender.com ',
+        ' https://www.getproductrecall.com/ , https://getproductrecall.com ',
       ),
     ).toEqual([
-      'https://recall-ledger-web.onrender.com',
-      'https://other.onrender.com',
+      'https://www.getproductrecall.com',
+      'https://getproductrecall.com',
     ]);
   });
 });
@@ -63,6 +63,31 @@ describe('CORS', () => {
       .set('Origin', 'https://evil.example');
     expect(rejected.status).toBe(200);
     expect(rejected.headers['access-control-allow-origin']).toBeUndefined();
+  });
+
+  it('allows both www and apex when CLIENT_ORIGIN is a comma list', async () => {
+    process.env.CLIENT_ORIGIN =
+      'https://www.getproductrecall.com,https://getproductrecall.com';
+    const app = createApp({ fetchImpl: vi.fn() });
+
+    const www = await request(app)
+      .get('/health')
+      .set('Origin', 'https://www.getproductrecall.com');
+    expect(www.headers['access-control-allow-origin']).toBe(
+      'https://www.getproductrecall.com',
+    );
+
+    const apex = await request(app)
+      .get('/health')
+      .set('Origin', 'https://getproductrecall.com');
+    expect(apex.headers['access-control-allow-origin']).toBe(
+      'https://getproductrecall.com',
+    );
+
+    const stale = await request(app)
+      .get('/health')
+      .set('Origin', 'https://recall-ledger-web.onrender.com');
+    expect(stale.headers['access-control-allow-origin']).toBeUndefined();
   });
 
   it('allows requests with no Origin header (curl, health checks)', async () => {
