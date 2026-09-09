@@ -49,6 +49,8 @@ describe('GET /api/personas', () => {
     for (const persona of res.body.personas) {
       expect(persona.label).toBeTruthy();
       expect(persona.description).toBeTruthy();
+      expect(Array.isArray(persona.keywords)).toBe(true);
+      expect(persona.keywords.length).toBeGreaterThan(0);
       expect(persona.attributes).toBeUndefined();
     }
   });
