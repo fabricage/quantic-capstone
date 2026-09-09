@@ -188,17 +188,26 @@ body {
   gap: 0.55rem;
 }
 
-.suggested-search-chips-label,
+.suggested-search-chips-label {
+  margin: 0;
+  font-size: 1.35rem;
+}
+
 .suggested-search-group-label {
   margin: 0;
   font-family: var(--font-sans);
   font-size: 0.85rem;
-  color: var(--muted);
-}
-
-.suggested-search-group-label {
   font-weight: 600;
   color: var(--ink);
+}
+
+/* Home opens on the company chips: a soft card so it reads as its own
+   section, but no border so it does not fight the recall cards below. */
+.company-spotlight {
+  margin: 1.25rem 0 1.5rem;
+  padding: 1rem 1.1rem 1.1rem;
+  border-radius: 12px;
+  background: var(--paper);
 }
 
 .suggested-search-windows {
@@ -414,7 +423,7 @@ body {
 }
 
 .source-toggle {
-  margin: 1.5rem 0 0.75rem;
+  margin: 0 0 0.75rem;
   padding: 0;
   border: 0;
 }
@@ -520,62 +529,6 @@ body {
   font-size: 0.92rem;
 }
 
-.persona-cards {
-  margin: 0 0 1.25rem;
-}
-
-.persona-cards-title {
-  margin: 0 0 0.25rem;
-  font-size: 1.05rem;
-}
-
-.persona-cards-lede {
-  margin: 0 0 0.65rem;
-  font-family: var(--font-sans);
-  font-size: 0.88rem;
-  color: var(--muted);
-}
-
-.persona-card-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
-  gap: 0.6rem;
-}
-
-.persona-card {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  width: 100%;
-  text-align: left;
-  font: inherit;
-  padding: 0.75rem 0.85rem;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--paper);
-  cursor: pointer;
-  color: inherit;
-}
-
-.persona-card strong {
-  font-family: var(--font-sans);
-  font-size: 0.92rem;
-}
-
-.persona-card span {
-  font-family: var(--font-sans);
-  font-size: 0.85rem;
-  color: var(--muted);
-}
-
-.persona-card[aria-pressed='true'] {
-  border-color: var(--color-accent);
-  background: rgba(217, 228, 204, 0.55);
-}
-
 .browse {
   margin-top: 0.75rem;
 }
@@ -611,93 +564,6 @@ body {
   color: var(--muted);
 }
 
-.class-one-strip {
-  margin: 0 0 1rem;
-  padding: 0.75rem 0.9rem;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--paper);
-}
-
-.class-one-strip-header {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-}
-
-.class-one-strip-title {
-  margin: 0;
-  font-family: var(--font-sans);
-  font-size: 0.95rem;
-}
-
-.class-one-strip-scope {
-  margin-left: 0.4rem;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--accent);
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  padding: 0.05rem 0.5rem;
-  vertical-align: middle;
-}
-
-.class-one-strip-browse {
-  font-family: var(--font-sans);
-  font-size: 0.85rem;
-  font-weight: 600;
-  border: 0;
-  padding: 0;
-  background: none;
-  color: var(--accent);
-  text-decoration: underline;
-  cursor: pointer;
-}
-
-.class-one-strip-lede {
-  margin: 0.3rem 0 0.5rem;
-  font-family: var(--font-sans);
-  font-size: 0.85rem;
-  color: var(--muted);
-}
-
-.class-one-strip .status-message {
-  margin: 0.25rem 0 0;
-  font-size: 0.85rem;
-}
-
-.class-one-strip-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.class-one-strip-item {
-  max-width: 100%;
-  font-family: var(--font-sans);
-  font-size: 0.85rem;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  padding: 0.3rem 0.75rem;
-  background: var(--color-bg);
-  color: var(--ink);
-  cursor: pointer;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.class-one-strip-item:hover {
-  border-color: var(--accent);
-}
-
 .narrow-tools {
   display: flex;
   flex-direction: column;
@@ -709,8 +575,7 @@ body {
   margin: 0;
 }
 
-.filter-panel summary,
-.browse-companies summary {
+.filter-panel summary {
   font-family: var(--font-sans);
   font-weight: 600;
   cursor: pointer;
@@ -730,20 +595,6 @@ body {
   overflow: hidden;
   clip: rect(0 0 0 0);
   white-space: nowrap;
-}
-
-.browse-companies {
-  margin-top: 2rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--line);
-}
-
-.browse-companies summary {
-  font-size: 1.05rem;
-}
-
-.browse-companies .suggested-search-chips {
-  margin-top: 0.75rem;
 }
 
 .results-top-sentinel {
