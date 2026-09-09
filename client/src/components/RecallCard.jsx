@@ -6,7 +6,7 @@ import { formatRecallDate } from '../lib/dates.js';
 import { shortenProductTitle, shortenReason } from '../lib/textSnippets.js';
 import RecallImage from './RecallImage.jsx';
 
-export default function RecallCard({ recall, onSelect, saved = false, onToggleSave }) {
+export default function RecallCard({ recall, onSelect, saved = false, onToggleSave, why = '' }) {
   const title = shortenProductTitle(recall.product);
   const reason = shortenReason(recall.reason);
 
@@ -47,6 +47,7 @@ export default function RecallCard({ recall, onSelect, saved = false, onToggleSa
         <h2 className="recall-card-title">{title}</h2>
         <p className="recall-card-firm">{recall.firm}</p>
         {reason ? <p className="recall-card-reason">{reason}</p> : null}
+        {why ? <p className="recall-card-why">{why}</p> : null}
         <p className="recall-card-meta">
           <span>{recall.classification}</span>
           <time dateTime={recall.recallDate}>{formatRecallDate(recall.recallDate)}</time>

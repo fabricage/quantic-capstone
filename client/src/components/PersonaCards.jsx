@@ -1,6 +1,6 @@
 /**
  * PersonaCards.jsx
- * Purpose: Toggle a synthetic persona. Card 10 will use the selection to rank.
+ * Purpose: Toggle a synthetic persona so the current result page can be reranked.
  */
 export default function PersonaCards({ personas = [], selectedId = '', onSelect }) {
   if (!personas.length) return null;
@@ -9,7 +9,8 @@ export default function PersonaCards({ personas = [], selectedId = '', onSelect 
     <section className="persona-cards" aria-label="Personas">
       <h2 className="persona-cards-title">Who is this for?</h2>
       <p className="persona-cards-lede">
-        Optional. Search order does not change yet — ranking comes in the next card.
+        Optional. We reorder this page for the selected persona and add a one-line why
+        on each card. Without a ranking key, keyword order stays put.
       </p>
       <ul className="persona-card-list">
         {personas.map((persona) => {

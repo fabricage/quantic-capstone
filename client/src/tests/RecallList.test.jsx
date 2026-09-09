@@ -59,6 +59,19 @@ describe('RecallList', () => {
     expect(screen.getByText(/enter a keyword/i)).toBeInTheDocument();
   });
 
+  it('passes a why line through to the matching card', () => {
+    render(
+      <RecallList
+        loading={false}
+        searchFailed={false}
+        hasSearched
+        results={[sampleRecall]}
+        whyById={{ 'F-1': 'Often in a kids lunchbox.' }}
+      />,
+    );
+    expect(screen.getByText('Often in a kids lunchbox.')).toBeInTheDocument();
+  });
+
   it('renders a row for each recall', () => {
     render(
       <RecallList
