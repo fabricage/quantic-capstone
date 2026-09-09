@@ -211,32 +211,80 @@ describe('GET /api/recalls', () => {
     expect(cpscUrls.some((href) => href.includes('ProductName=crib'))).toBe(true);
   });
 
-  it('merges food and consumer on source=all and sorts newest first', async () => {
+  it('alternates FDA then CPSC on source=all, even when CPSC rows are newer', async () => {
+    const foodRow = (id, day) => ({
+      recall_number: id,
+      recalling_firm: 'Acme Foods',
+      product_description: 'Milk',
+      reason_for_recall: 'Listeria',
+      classification: 'Class II',
+      status: 'Ongoing',
+      state: 'CA',
+      report_date: `202401${day}`,
+      recall_initiation_date: '20240101',
+    });
     const fetchImpl = fetchByHost({
-      fda: sampleOpenFda({
-        results: [
-          {
-            recall_number: 'F-old',
-            recalling_firm: 'Acme Foods',
-            product_description: 'Milk',
-            reason_for_recall: 'Listeria',
-            classification: 'Class II',
-            status: 'Ongoing',
-            state: 'CA',
-            report_date: '20240110',
-            recall_initiation_date: '20240101',
-          },
-        ],
-      }),
-      cpsc: [sampleCpsc()],
+      // Deliberately out of order so we can see each side gets sorted.
+      fda: sampleOpenFda({ results: [foodRow('F-older', '05'), foodRow('F-newer', '10')] }),
+      cpsc: [
+        sampleCpsc({ RecallNumber: 'C1', LastPublishDate: '2026-08-07T00:00:00' }),
+        sampleCpsc({ RecallNumber: 'C2', LastPublishDate: '2026-08-09T00:00:00' }),
+        sampleCpsc({ RecallNumber: 'C3', LastPublishDate: '2026-08-08T00:00:00' }),
+      ],
     });
     const app = createApp({ fetchImpl });
 
     const res = await request(app).get('/api/recalls').query({ source: 'all', q: 'crib' });
     expect(res.status).toBe(200);
     expect(res.body.source).toBe('all');
-    expect(res.body.results.map((r) => r.id)).toEqual(['cpsc-26669', 'F-old']);
-    expect(res.body.results.map((r) => r.source)).toEqual(['consumer', 'food']);
+    expect(res.body.total).toBe(5);
+    expect(res.body.results.map((r) => r.id)).toEqual([
+      'F-newer',
+      'cpsc-C2',
+      'F-older',
+      'cpsc-C3',
+      'cpsc-C1',
+    ]);
+    expect(res.body.results.map((r) => r.source)).toEqual([
+      'food',
+      'consumer',
+      'food',
+      'consumer',
+      'consumer',
+    ]);
+  });
+
+  it('keeps the alternating order stable across pages on source=all', async () => {
+    const foodRow = (id, day) => ({
+      recall_number: id,
+      recalling_firm: 'Acme Foods',
+      product_description: 'Milk',
+      reason_for_recall: 'Listeria',
+      classification: 'Class II',
+      status: 'Ongoing',
+      state: 'CA',
+      report_date: `202401${day}`,
+      recall_initiation_date: '20240101',
+    });
+    const fetchImpl = fetchByHost({
+      fda: sampleOpenFda({ results: [foodRow('F1', '10'), foodRow('F2', '09'), foodRow('F3', '08')] }),
+      cpsc: [
+        sampleCpsc({ RecallNumber: 'C1', LastPublishDate: '2026-08-09T00:00:00' }),
+        sampleCpsc({ RecallNumber: 'C2', LastPublishDate: '2026-08-08T00:00:00' }),
+        sampleCpsc({ RecallNumber: 'C3', LastPublishDate: '2026-08-07T00:00:00' }),
+      ],
+    });
+    const app = createApp({ fetchImpl });
+
+    const page1 = await request(app)
+      .get('/api/recalls')
+      .query({ source: 'all', q: 'crib', skip: 0, limit: 4 });
+    const page2 = await request(app)
+      .get('/api/recalls')
+      .query({ source: 'all', q: 'crib', skip: 4, limit: 4 });
+    expect(page1.body.results.map((r) => r.id)).toEqual(['F1', 'cpsc-C1', 'F2', 'cpsc-C2']);
+    expect(page2.body.results.map((r) => r.id)).toEqual(['F3', 'cpsc-C3']);
+    expect(page1.body.total).toBe(6);
   });
 
   it('paginates consumer results in memory after the full CPSC merge', async () => {

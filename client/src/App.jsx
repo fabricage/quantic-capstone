@@ -32,7 +32,7 @@ const DEFAULT_SOURCE = 'all';
 function sourceLede(source) {
   if (source === 'consumer') return 'Newest first. CPSC consumer products.';
   if (source === 'food') return 'Newest first. FDA food.';
-  return 'Newest first. FDA food plus CPSC consumer products.';
+  return 'Newest first, alternating one FDA food recall with one CPSC consumer product.';
 }
 
 export default function App() {

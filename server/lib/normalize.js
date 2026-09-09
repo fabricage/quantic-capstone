@@ -251,3 +251,22 @@ export function sortRecallsByDateDesc(recalls) {
     return String(a?.id || '').localeCompare(String(b?.id || ''));
   });
 }
+
+/**
+ * Alternate FDA food and CPSC consumer rows: food, consumer, food, consumer…
+ * Why: a plain date sort lets whichever agency posted most recently take
+ * over the whole page. Each side is sorted newest-first on its own, so the
+ * page still reads as "latest" while showing both sources equally. When one
+ * side runs out, the rest of the other side follows in date order.
+ */
+export function interleaveBySource(food, consumer) {
+  const a = sortRecallsByDateDesc(food);
+  const b = sortRecallsByDateDesc(consumer);
+  const out = [];
+  const longest = Math.max(a.length, b.length);
+  for (let i = 0; i < longest; i += 1) {
+    if (i < a.length) out.push(a[i]);
+    if (i < b.length) out.push(b[i]);
+  }
+  return out;
+}

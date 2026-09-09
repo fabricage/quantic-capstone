@@ -1,6 +1,7 @@
 /**
  * recalls.js
- * Purpose: GET /api/recalls — FDA food, CPSC consumer, or merged `all`.
+ * Purpose: GET /api/recalls — FDA food, CPSC consumer, or `all`, which
+ * alternates one FDA row with one CPSC row (each side newest first).
  * Cache-Control: no-store — CPSC often drops new notices on Thursday.
  */
 import { Router } from 'express';
@@ -9,6 +10,7 @@ import { fetchCpscWebsiteRecalls } from '../lib/cpscWebsite.js';
 import { fetchFdaWebsiteRecalls } from '../lib/fdaWebsite.js';
 import { originMatchesFilter, parseLocationFilter } from '../lib/location.js';
 import {
+  interleaveBySource,
   mergeRecallLists,
   normalizeConsumerRecalls,
   normalizeRecalls,
@@ -194,7 +196,7 @@ export function createRecallsRouter({ fetchImpl = fetch } = {}) {
       );
     }
 
-    const merged = sortRecallsByDateDesc([...foodResults, ...consumerResults]);
+    const merged = interleaveBySource(foodResults, consumerResults);
     const page = paginateCpscRecalls(merged, skip, limit);
     return noStore(res).json({
       total: page.total,
