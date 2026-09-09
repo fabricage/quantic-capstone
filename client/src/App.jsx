@@ -27,7 +27,7 @@ import {
   pageToSkip,
   resultRange,
 } from './lib/pagination.js';
-import { scrollToResultsTop } from './lib/scroll.js';
+import { scrollToPageTop, scrollToResultsTop } from './lib/scroll.js';
 import { DEFAULT_LOOKBACK_WINDOW, LOOKBACK_WINDOWS } from './lib/suggestedChips.js';
 
 const DEFAULT_SOURCE = 'all';
@@ -143,6 +143,13 @@ export default function App() {
     pendingScrollRef.current = false;
     scrollToResultsTop();
   }, [loading, results, page]);
+
+  // Detail replaces a long list. Keep the previous scrollY and the window
+  // sits on the FAQ. Reset after paint so Back and the product title are first.
+  useEffect(() => {
+    if (view !== 'detail') return;
+    scrollToPageTop();
+  }, [view, selected]);
 
   function filtersForRequest(nextFilters, nextSource = source) {
     if (nextSource === 'consumer') {
@@ -298,6 +305,7 @@ export default function App() {
     setReturnView(view === 'saved' ? 'saved' : 'search');
     setSelected(recall);
     setView('detail');
+    scrollToPageTop();
   }
 
   function handleBack() {

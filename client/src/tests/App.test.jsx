@@ -12,6 +12,7 @@ import * as scroll from '../lib/scroll.js';
 vi.mock('../lib/scroll.js', () => ({
   scrollElementIntoView: vi.fn(),
   scrollToResultsTop: vi.fn(),
+  scrollToPageTop: vi.fn(),
 }));
 
 afterEach(() => {
@@ -141,6 +142,7 @@ describe('App', () => {
 
     await user.click(screen.getByRole('button', { name: /view details for infant formula/i }));
     expect(await screen.findByText(longReason)).toBeInTheDocument();
+    expect(scroll.scrollToPageTop).toHaveBeenCalled();
     const recallCalls = fetchMock.mock.calls.filter((call) => {
       const href = String(call[0]);
       return href.includes('/api/recalls') && href.includes('q=formula');
