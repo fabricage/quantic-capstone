@@ -1,6 +1,7 @@
 /**
  * SuggestedSearchChips.test.jsx
  * Purpose: Empty renders nothing; grouped chips pass phrase + source.
+ * Count chips and lookback radios are the extra surface for this card.
  */
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -48,5 +49,37 @@ describe('SuggestedSearchChips', () => {
 
     await user.click(screen.getByRole('button', { name: 'Voomf' }));
     expect(onSelect).toHaveBeenCalledWith('Voomf', 'consumer');
+  });
+
+  it('shows a monogram, recall count, and lookback radios', async () => {
+    const user = userEvent.setup();
+    const onWindowChange = vi.fn();
+    const onSelect = vi.fn();
+    render(
+      <SuggestedSearchChips
+        label="Companies with the most recalls"
+        windowId="1y"
+        onWindowChange={onWindowChange}
+        onSelect={onSelect}
+        groups={[
+          {
+            id: 'food',
+            label: 'FDA food',
+            source: 'food',
+            suggestions: [{ phrase: 'Acme Foods Inc', count: 40 }],
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText('AF')).toBeInTheDocument();
+    expect(screen.getByText('40 recalls')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /acme foods inc, 40 recalls/i }));
+    expect(onSelect).toHaveBeenCalledWith('Acme Foods Inc', 'food');
+
+    const year = screen.getByRole('radio', { name: '1 year' });
+    expect(year).toHaveAttribute('aria-checked', 'true');
+    await user.click(screen.getByRole('radio', { name: '3 months' }));
+    expect(onWindowChange).toHaveBeenCalledWith('3m');
   });
 });

@@ -30,6 +30,7 @@ import {
 import { applyRanking } from './lib/rankResults.js';
 import { interleaveBySource, rankByPersonaBio } from './lib/personaMatch.js';
 import { scrollToResultsTop } from './lib/scroll.js';
+import { DEFAULT_LOOKBACK_WINDOW, LOOKBACK_WINDOWS } from './lib/suggestedChips.js';
 
 export default function App() {
   const [view, setView] = useState('search');
@@ -61,9 +62,12 @@ export default function App() {
   const [consumerFailed, setConsumerFailed] = useState(false);
   const [classIFailed, setClassIFailed] = useState(false);
   const [suggestedSearches, setSuggestedSearches] = useState({
-    label: '',
+    label: 'Companies with the most recalls',
     groups: [],
+    windows: LOOKBACK_WINDOWS,
   });
+  const [suggestedWindow, setSuggestedWindow] = useState(DEFAULT_LOOKBACK_WINDOW);
+  const [suggestedReady, setSuggestedReady] = useState(false);
   const pendingScrollRef = useRef(false);
   const rankGenerationRef = useRef(0);
 
@@ -81,13 +85,23 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    fetchSuggestedSearches().then((data) => {
+    let cancelled = false;
+    fetchSuggestedSearches({ windowId: suggestedWindow }).then((data) => {
+      if (cancelled) return;
       setSuggestedSearches({
-        label: data?.label || '',
+        label: data?.label || 'Companies with the most recalls',
         groups: Array.isArray(data?.groups) ? data.groups : [],
+        windows:
+          Array.isArray(data?.windows) && data.windows.length
+            ? data.windows
+            : LOOKBACK_WINDOWS,
       });
+      setSuggestedReady(true);
     });
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [suggestedWindow]);
 
   const dateRangeError = isInvalidDateRange(filters.dateFrom, filters.dateTo);
   const range = resultRange(page, pageSize, total);
@@ -404,6 +418,10 @@ export default function App() {
               <SuggestedSearchChips
                 label={suggestedSearches.label}
                 groups={suggestedSearches.groups}
+                windows={suggestedSearches.windows || LOOKBACK_WINDOWS}
+                windowId={suggestedWindow}
+                ready={suggestedReady}
+                onWindowChange={setSuggestedWindow}
                 onSelect={handleSuggestedSearch}
               />
               <RecentSearchChips

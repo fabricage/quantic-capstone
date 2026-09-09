@@ -3,7 +3,7 @@
  * Purpose: GET /api/trending-searches — company chips from FDA counts + CPSC samples.
  *
  * Soft-fail each upstream so a 403/timeout never 500s the chips. Cache ~5 min
- * with a versioned key so a bad payload shape can be busted (v6).
+ * per lookback window (v7) so 1-month and 1-year lists stay independent.
  * Cache-Control: no-store — browsers should not keep a stale chip list.
  */
 import { Router } from 'express';
@@ -13,16 +13,24 @@ import { fetchCpscWebsiteRecalls } from '../lib/cpscWebsite.js';
 import { fetchFdaWebsiteRecalls } from '../lib/fdaWebsite.js';
 import { fetchRecallingFirmCounts } from '../lib/openfda.js';
 import {
-  FIRM_COUNT_LOOKBACK_DAYS,
+  DEFAULT_LOOKBACK_WINDOW,
   SUGGESTED_PER_SOURCE,
   buildSuggestedSearchGroups,
   countFirmsFromRecalls,
   daysAgoDate,
   emptySuggestedSearchPayload,
+  publicLookbackWindows,
+  resolveLookbackWindow,
 } from '../lib/suggestedSearches.js';
 
 export const TRENDING_CACHE_TTL_MS = 5 * 60 * 1000;
-export const TRENDING_CACHE_KEY = 'trending-searches:v6';
+
+export function trendingCacheKey(windowId = DEFAULT_LOOKBACK_WINDOW) {
+  const { id } = resolveLookbackWindow(windowId);
+  return `trending-searches:v7:${id}`;
+}
+
+export const TRENDING_CACHE_KEY = trendingCacheKey(DEFAULT_LOOKBACK_WINDOW);
 
 export const trendingCache = createCache(TRENDING_CACHE_TTL_MS);
 
@@ -39,8 +47,21 @@ function firmsFromWebsiteRows(rows) {
   return rows.map((row) => row?.firm).filter(Boolean);
 }
 
-export async function loadSuggestedSearches(fetchImpl = fetch) {
-  const dateFrom = daysAgoDate(FIRM_COUNT_LOOKBACK_DAYS);
+function withWindowMeta(payload, windowId) {
+  const window = resolveLookbackWindow(windowId);
+  return {
+    ...payload,
+    window: window.id,
+    windows: publicLookbackWindows(),
+  };
+}
+
+export async function loadSuggestedSearches(
+  fetchImpl = fetch,
+  windowId = DEFAULT_LOOKBACK_WINDOW,
+) {
+  const window = resolveLookbackWindow(windowId);
+  const dateFrom = daysAgoDate(window.days);
   const dateTo = daysAgoDate(0);
   const countLimit = Math.max(40, SUGGESTED_PER_SOURCE * 5);
 
@@ -51,30 +72,35 @@ export async function loadSuggestedSearches(fetchImpl = fetch) {
     settle(() => fetchCpscWebsiteRecalls({}, fetchImpl)),
   ]);
 
-  return buildSuggestedSearchGroups({
-    foodCounts: foodCounts || [],
-    consumerCounts: countFirmsFromRecalls(consumerRaw || []),
-    recentFoodFirms: firmsFromWebsiteRows(fdaWebsite),
-    recentConsumerFirms: firmsFromWebsiteRows(cpscWebsite),
-  });
+  return withWindowMeta(
+    buildSuggestedSearchGroups({
+      foodCounts: foodCounts || [],
+      consumerCounts: countFirmsFromRecalls(consumerRaw || []),
+      recentFoodFirms: firmsFromWebsiteRows(fdaWebsite),
+      recentConsumerFirms: firmsFromWebsiteRows(cpscWebsite),
+    }),
+    window.id,
+  );
 }
 
 export function createTrendingRouter({ fetchImpl = fetch, cache = trendingCache } = {}) {
   const router = Router();
 
-  router.get('/', async (_req, res) => {
+  router.get('/', async (req, res) => {
     res.set('Cache-Control', 'no-store');
-    const cached = cache.get(TRENDING_CACHE_KEY);
+    const window = resolveLookbackWindow(req.query.window);
+    const cacheKey = trendingCacheKey(window.id);
+    const cached = cache.get(cacheKey);
     if (cached) {
       return res.json(cached);
     }
 
     try {
-      const payload = await loadSuggestedSearches(fetchImpl);
-      cache.set(TRENDING_CACHE_KEY, payload);
+      const payload = await loadSuggestedSearches(fetchImpl, window.id);
+      cache.set(cacheKey, payload);
       return res.json(payload);
     } catch {
-      return res.json(emptySuggestedSearchPayload());
+      return res.json(emptySuggestedSearchPayload(window.id));
     }
   });
 
