@@ -48,6 +48,7 @@ export default function App() {
   const [searchFailed, setSearchFailed] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [personas, setPersonas] = useState([]);
+  const [personasFailed, setPersonasFailed] = useState(false);
   const [personaId, setPersonaId] = useState('');
   // Keyword order for the current page. Ranking reorders `results` but we
   // keep this copy so deselect / fallback can restore FDA order.
@@ -67,9 +68,14 @@ export default function App() {
 
   useEffect(() => {
     fetchPersonas()
-      .then((data) => setPersonas(Array.isArray(data.personas) ? data.personas : []))
+      .then((data) => {
+        setPersonas(Array.isArray(data.personas) ? data.personas : []);
+        setPersonasFailed(false);
+      })
       .catch(() => {
+        // Personas are optional. Show a notice; do not crash home.
         setPersonas([]);
+        setPersonasFailed(true);
       });
   }, []);
 
@@ -381,11 +387,49 @@ export default function App() {
             dateRangeError={dateRangeError}
             source={source}
           />
-          <PersonaCards
-            personas={personas}
-            selectedId={personaId}
-            onSelect={setPersonaId}
+          {personasFailed ? (
+            <StatusMessage>
+              We couldn’t load shopper profiles. Search still works as usual.
+            </StatusMessage>
+          ) : (
+            <PersonaCards
+              personas={personas}
+              selectedId={personaId}
+              onSelect={setPersonaId}
+            />
+          )}
+
+          {hasSearched ? (
+            <div className="results-top-sentinel" data-results-top />
+          ) : null}
+          {hasSearched && personaRanking ? (
+            <StatusMessage>Reordering for your persona…</StatusMessage>
+          ) : null}
+          {hasSearched && personaFallback ? (
+            <StatusMessage tone="notice">
+              We couldn’t personalize this page. Showing keyword order.
+            </StatusMessage>
+          ) : null}
+
+          <RecallList
+            loading={hasSearched && loading}
+            searchFailed={hasSearched && searchFailed}
+            hasSearched={hasSearched}
+            query={activeQuery}
+            results={results}
+            total={total}
+            rangeStart={range.start}
+            rangeEnd={range.end}
+            filtersActive={hasActiveFilters(filtersForRequest(filters))}
+            dateFrom={dateRangeError ? '' : filters.dateFrom}
+            dateTo={dateRangeError ? '' : filters.dateTo}
+            source={source}
+            onSelect={handleSelect}
+            isSaved={isSaved}
+            onToggleSave={toggleSave}
+            whyById={whyById}
           />
+
           {!hasSearched ? (
             <div className="home-modules">
               {recentFailed ? (
@@ -410,45 +454,15 @@ export default function App() {
               />
               <HighRiskRecalls onSelect={handleSelect} onFailed={setClassIFailed} />
             </div>
-          ) : (
-            <>
-              <div className="results-top-sentinel" data-results-top />
-              {personaRanking ? (
-                <p className="status-message">Reordering for your persona…</p>
-              ) : null}
-              {personaFallback ? (
-                <p className="status-message status-message--notice" role="status">
-                  We couldn’t personalize this page. Showing keyword order.
-                </p>
-              ) : null}
-              <RecallList
-                loading={loading}
-                searchFailed={searchFailed}
-                hasSearched={hasSearched}
-                query={activeQuery}
-                results={results}
-                total={total}
-                rangeStart={range.start}
-                rangeEnd={range.end}
-                filtersActive={hasActiveFilters(filtersForRequest(filters))}
-                dateFrom={dateRangeError ? '' : filters.dateFrom}
-                dateTo={dateRangeError ? '' : filters.dateTo}
-                onSelect={handleSelect}
-                isSaved={isSaved}
-                onToggleSave={toggleSave}
-                whyById={whyById}
-              />
-              {!loading && !searchFailed ? (
-                <Pagination
-                  page={page}
-                  pageSize={pageSize}
-                  total={total}
-                  onPageChange={handlePageChange}
-                  onPageSizeChange={handlePageSizeChange}
-                />
-              ) : null}
-            </>
-          )}
+          ) : !loading && !searchFailed ? (
+            <Pagination
+              page={page}
+              pageSize={pageSize}
+              total={total}
+              onPageChange={handlePageChange}
+              onPageSizeChange={handlePageSizeChange}
+            />
+          ) : null}
         </>
       )}
     </div>

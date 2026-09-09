@@ -12,6 +12,16 @@ function dateRangeLabel(dateFrom, dateTo) {
   return ` · initiation on or before ${dateTo}`;
 }
 
+function idleCopy(source) {
+  if (source === 'consumer') {
+    return 'Enter a keyword to search CPSC consumer-product recalls by product or firm.';
+  }
+  if (source === 'all') {
+    return 'Enter a keyword to search FDA food and CPSC consumer-product recalls by product or firm.';
+  }
+  return 'Enter a keyword to search FDA food recalls by product or firm.';
+}
+
 export default function RecallList({
   loading,
   searchFailed,
@@ -24,6 +34,7 @@ export default function RecallList({
   filtersActive = false,
   dateFrom = '',
   dateTo = '',
+  source = 'food',
   onSelect,
   isSaved,
   onToggleSave,
@@ -42,11 +53,7 @@ export default function RecallList({
   }
 
   if (!hasSearched) {
-    return (
-      <StatusMessage>
-        Enter a keyword to search FDA food recalls by product or firm.
-      </StatusMessage>
-    );
+    return <StatusMessage>{idleCopy(source)}</StatusMessage>;
   }
 
   if (!results?.length) {
@@ -55,10 +62,12 @@ export default function RecallList({
         <StatusMessage>No recalls match these filters.</StatusMessage>
       );
     }
-    const label = query ? `“${query}”` : 'this keyword';
+    if (!query) {
+      return <StatusMessage>No results for this keyword.</StatusMessage>;
+    }
     return (
       <StatusMessage>
-        No results for this keyword{query ? ` (${label})` : ''}.
+        No results for this keyword (“{query}”).
       </StatusMessage>
     );
   }

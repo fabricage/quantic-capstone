@@ -226,6 +226,35 @@ body {
   color: var(--danger);
 }
 
+.status-message--notice {
+  color: #5c4a00;
+}
+
+.error-boundary {
+  margin: 2.5rem auto;
+  max-width: 36rem;
+  padding: 1.5rem 1.25rem;
+  border: 1px solid #e0c4c4;
+  border-radius: 10px;
+  background: #fff8f8;
+  text-align: center;
+}
+
+.error-boundary-title {
+  margin: 0 0 0.5rem;
+  font-size: 1.25rem;
+}
+
+.error-boundary-copy {
+  margin: 0 0 1.1rem;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.error-boundary button {
+  min-height: 44px;
+}
+
 .recall-list {
   list-style: none;
   margin: 0;

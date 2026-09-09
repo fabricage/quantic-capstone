@@ -55,6 +55,34 @@ describe('searchRecalls', () => {
     expect(requested).toContain('location=china');
     expect(requested).toContain('source=consumer');
   });
+
+  it('throws a user-safe message instead of an upstream dump', async () => {
+    vi.stubEnv('VITE_API_BASE_URL', '');
+    vi.resetModules();
+    const { searchRecalls } = await import('../api.js');
+    const fetchImpl = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 502,
+      json: async () => ({ error: 'ECONNREFUSED stack dump at TCPConnectWrap' }),
+    });
+    try {
+      await searchRecalls({ q: 'milk' }, fetchImpl);
+      throw new Error('searchRecalls should have thrown');
+    } catch (err) {
+      expect(err.message).toMatch(/couldn’t load recalls right now/i);
+      expect(err.message).not.toMatch(/ECONNREFUSED|stack dump|TCPConnectWrap|Request failed/i);
+    }
+  });
+
+  it('throws the same user-safe message when the network is down', async () => {
+    vi.stubEnv('VITE_API_BASE_URL', '');
+    vi.resetModules();
+    const { searchRecalls } = await import('../api.js');
+    const fetchImpl = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'));
+    await expect(searchRecalls({ q: 'milk' }, fetchImpl)).rejects.toThrow(
+      /couldn’t load recalls right now/i,
+    );
+  });
 });
 
 describe('fetchSuggestedSearches', () => {

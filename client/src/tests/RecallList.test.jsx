@@ -50,13 +50,58 @@ describe('RecallList', () => {
       />,
     );
     expect(screen.getByText(/no results for this keyword/i)).toBeInTheDocument();
+    expect(screen.getByText(/zzzxnope/i)).toBeInTheDocument();
+  });
+
+  it('uses generic empty-keyword copy when the query is blank', () => {
+    render(
+      <RecallList
+        loading={false}
+        searchFailed={false}
+        hasSearched
+        query=""
+        results={[]}
+      />,
+    );
+    expect(screen.getByText(/no results for this keyword\./i)).toBeInTheDocument();
+    expect(screen.queryByText(/“/)).not.toBeInTheDocument();
   });
 
   it('shows an idle prompt before the first search', () => {
     render(
       <RecallList loading={false} searchFailed={false} hasSearched={false} results={[]} />,
     );
-    expect(screen.getByText(/enter a keyword/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/enter a keyword to search fda food recalls/i),
+    ).toBeInTheDocument();
+  });
+
+  it('mentions CPSC consumer-product recalls when source is consumer', () => {
+    render(
+      <RecallList
+        loading={false}
+        searchFailed={false}
+        hasSearched={false}
+        results={[]}
+        source="consumer"
+      />,
+    );
+    expect(screen.getByText(/cpsc consumer-product recalls/i)).toBeInTheDocument();
+  });
+
+  it('mentions both sources when source is all', () => {
+    render(
+      <RecallList
+        loading={false}
+        searchFailed={false}
+        hasSearched={false}
+        results={[]}
+        source="all"
+      />,
+    );
+    expect(
+      screen.getByText(/fda food and cpsc consumer-product recalls/i),
+    ).toBeInTheDocument();
   });
 
   it('passes a why line through to the matching card', () => {

@@ -66,7 +66,17 @@ describe('App', () => {
 
   it('shows an inline date-range error and does not hit the API', async () => {
     const user = userEvent.setup();
-    const fetchMock = vi.fn();
+    const fetchMock = vi.fn().mockImplementation((url) => {
+      const href = String(url);
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({
+          total: 0,
+          source: href.includes('source=consumer') ? 'consumer' : 'food',
+          results: [],
+        }),
+      });
+    });
     vi.stubGlobal('fetch', fetchMock);
 
     render(<App />);
@@ -308,7 +318,9 @@ describe('App', () => {
     expect(await screen.findByText('Latest Dairy')).toBeInTheDocument();
     expect(await screen.findByText('Voomf')).toBeInTheDocument();
     expect(await screen.findByText('High Risk Co')).toBeInTheDocument();
-    expect(screen.queryByText(/enter a keyword/i)).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/enter a keyword to search fda food recalls/i),
+    ).toBeInTheDocument();
   });
 
   it('ranks the current page and shows why-lines when a persona is selected', async () => {
@@ -559,6 +571,104 @@ describe('App', () => {
       within(screen.getByLabelText(/recent searches/i)).getByRole('button', {
         name: 'FreshPoint',
       }),
+    ).toBeInTheDocument();
+  });
+
+  it('shows a friendly search error without raw exception text', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn().mockImplementation((url) => {
+      const href = String(url);
+      if (href.includes('/api/personas')) {
+        return Promise.resolve({ ok: true, json: async () => ({ personas: [] }) });
+      }
+      if (href.includes('q=')) {
+        return Promise.resolve({
+          ok: false,
+          status: 502,
+          json: async () => ({
+            error: 'ECONNREFUSED connect localhost:3001\n    at TCPConnectWrap',
+          }),
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ total: 0, source: 'food', results: [] }),
+      });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<App />);
+    await user.type(screen.getByRole('searchbox'), 'milk');
+    await user.click(
+      within(screen.getByRole('searchbox').closest('form')).getByRole('button', {
+        name: /search/i,
+      }),
+    );
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/couldn’t load recalls/i);
+    expect(screen.queryByText(/ECONNREFUSED/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/TCPConnectWrap/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/TypeError/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Request failed/i)).not.toBeInTheDocument();
+  });
+
+  it('keeps home usable and shows a notice when personas fail to load', async () => {
+    const fetchMock = vi.fn().mockImplementation((url) => {
+      const href = String(url);
+      if (href.includes('/api/personas')) {
+        return Promise.reject(new Error('Request failed (500)'));
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({
+          total: 1,
+          source: 'food',
+          results: [
+            {
+              id: 'F-recent',
+              firm: 'Latest Dairy',
+              product: 'Cheddar cheese',
+              reason: 'Listeria',
+              classification: 'Class II',
+              recallDate: '20240115',
+              source: 'food',
+              imageUrl: '',
+              imageAlt: '',
+            },
+          ],
+        }),
+      });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<App />);
+    expect(await screen.findByText(/couldn’t load shopper profiles/i)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /the recall ledger/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /latest recalls/i })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: /who is this for/i })).not.toBeInTheDocument();
+  });
+
+  it('changes idle copy when the source toggle changes', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ total: 0, source: 'food', results: [] }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<App />);
+    expect(
+      screen.getByText(/enter a keyword to search fda food recalls/i),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Consumer' }));
+    expect(
+      screen.getByText(/enter a keyword to search cpsc consumer-product recalls/i),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'All' }));
+    expect(
+      screen.getByText(/enter a keyword to search fda food and cpsc consumer-product recalls/i),
     ).toBeInTheDocument();
   });
 });
