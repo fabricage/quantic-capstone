@@ -1,6 +1,7 @@
 /**
  * App.test.jsx
- * Purpose: Brand, BFF search, filters, detail, pagination, chips, and persona ranking.
+ * Purpose: Brand, browse-first home list, BFF search, filters, detail,
+ * pagination, chips, and persona ranking.
  */
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -320,48 +321,182 @@ describe('App', () => {
     },
   ];
 
-  it('shows latest and Class I home previews before the first search', async () => {
-    const fetchMock = vi.fn().mockImplementation((url) => {
+  const latestDairy = {
+    id: 'F-recent',
+    firm: 'Latest Dairy',
+    product: 'Cheddar cheese',
+    reason: 'Listeria',
+    classification: 'Class II',
+    recallDate: '20240115',
+    source: 'food',
+    imageUrl: '',
+    imageAlt: '',
+  };
+
+  const homeCrib = {
+    id: 'cpsc-home',
+    firm: 'Voomf',
+    product: 'Crib mattress',
+    reason: 'Entrapment',
+    classification: 'Consumer Product',
+    recallDate: '20240114',
+    source: 'consumer',
+    imageUrl: 'https://www.cpsc.gov/s3fs-public/crib.jpg',
+    imageAlt: '',
+  };
+
+  const highRisk = {
+    id: 'F-class-i',
+    firm: 'High Risk Co',
+    product: 'Infant formula',
+    reason: 'Possible contamination',
+    classification: 'Class I',
+    recallDate: '20240113',
+    source: 'food',
+    imageUrl: '',
+    imageAlt: '',
+  };
+
+  // Home mock: FDA + CPSC rows for `all`, CPSC only for `consumer`, and a
+  // Class I row whenever the classification filter is present.
+  function browseFetch({ personas = [parentPersona] } = {}) {
+    return vi.fn().mockImplementation((url) => {
       const href = String(url);
       if (href.includes('/api/personas')) {
-        return Promise.resolve({ ok: true, json: async () => ({ personas: [] }) });
+        return Promise.resolve({ ok: true, json: async () => ({ personas }) });
       }
-      const isConsumer = href.includes('source=consumer');
-      const isClassI = href.includes('classification=Class');
+      if (href.includes('/api/trending-searches')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            label: 'Companies with the most recalls',
+            groups: [
+              {
+                id: 'food',
+                label: 'FDA food',
+                source: 'food',
+                suggestions: [{ phrase: 'Acme Foods Inc', count: 40 }],
+              },
+            ],
+            suggestions: [],
+          }),
+        });
+      }
+      if (href.includes('/api/persona-rank')) {
+        return Promise.resolve({ ok: true, json: async () => ({ fallback: true }) });
+      }
+      if (href.includes('classification=Class')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ total: 1, source: 'food', results: [highRisk] }),
+        });
+      }
+      if (href.includes('source=consumer')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ total: 1, source: 'consumer', results: [homeCrib] }),
+        });
+      }
+      if (href.includes('source=food')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ total: 1, source: 'food', results: [latestDairy] }),
+        });
+      }
       return Promise.resolve({
         ok: true,
-        json: async () => ({
-          total: 1,
-          source: isConsumer ? 'consumer' : 'food',
-          results: [
-            {
-              id: isConsumer ? 'cpsc-home' : isClassI ? 'F-class-i' : 'F-recent',
-              firm: isConsumer ? 'Voomf' : isClassI ? 'High Risk Co' : 'Latest Dairy',
-              product: isConsumer ? 'Crib mattress' : isClassI ? 'Infant formula' : 'Cheddar cheese',
-              reason: 'Possible contamination',
-              classification: isConsumer ? 'Consumer Product' : isClassI ? 'Class I' : 'Class II',
-              recallDate: '20240115',
-              source: isConsumer ? 'consumer' : 'food',
-              imageUrl: isConsumer ? 'https://www.cpsc.gov/s3fs-public/crib.jpg' : '',
-              imageAlt: '',
-            },
-          ],
-        }),
+        json: async () => ({ total: 45, source: 'all', results: [latestDairy, homeCrib] }),
       });
     });
+  }
+
+  function recallUrls(fetchMock) {
+    return fetchMock.mock.calls
+      .map((call) => String(call[0]))
+      .filter((href) => href.includes('/api/recalls'));
+  }
+
+  it('loads the paged latest list for all sources on arrival, before any typing', async () => {
+    const fetchMock = browseFetch();
     vi.stubGlobal('fetch', fetchMock);
 
     render(<App />);
     expect(screen.getByRole('heading', { name: /latest recalls/i })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: /fda food/i })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: /cpsc consumer/i })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: /class i high-risk/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'All' })).toHaveAttribute('aria-pressed', 'true');
+
     expect(await screen.findByText('Latest Dairy')).toBeInTheDocument();
-    expect(await screen.findByText('Voomf')).toBeInTheDocument();
-    expect(await screen.findByText('High Risk Co')).toBeInTheDocument();
+    expect(screen.getByText('Voomf')).toBeInTheDocument();
+    expect(screen.getByText(/showing 1–20 of 45/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/per page/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /next/i })).toBeInTheDocument();
+
+    const listUrls = recallUrls(fetchMock).filter((href) => !href.includes('classification='));
+    expect(listUrls.length).toBeGreaterThan(0);
+    expect(listUrls.every((href) => href.includes('source=all'))).toBe(true);
+    expect(listUrls.some((href) => /[?&]q=/.test(href))).toBe(false);
+    expect(recallUrls(fetchMock).some((href) => href.includes('api.fda.gov'))).toBe(false);
+
+    // The Class I strip is FDA-only and separate from the paged list.
+    expect(await screen.findByText('Infant formula · High Risk Co')).toBeInTheDocument();
+    expect(screen.getByText(/fda food only/i)).toBeInTheDocument();
+    expect(screen.getByText(/severity,\s*not popularity/i)).toBeInTheDocument();
+  });
+
+  it('places persona cards above the list and company chips after it, outside the search form', async () => {
+    const fetchMock = browseFetch();
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<App />);
+    const firstCard = await screen.findByRole('button', {
+      name: /view details for cheddar cheese/i,
+    });
+
+    const personaHeading = await screen.findByRole('heading', { name: /who is this for/i });
+    expect(screen.getByText(/optional: pick a preset household/i)).toBeInTheDocument();
     expect(
-      screen.getByText(/enter a keyword to search fda food recalls/i),
-    ).toBeInTheDocument();
+      personaHeading.compareDocumentPosition(firstCard) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+
+    const chipsLabel = await screen.findByText(/companies with the most recalls/i);
+    expect(chipsLabel.closest('form')).toBeNull();
+    expect(
+      firstCard.compareDocumentPosition(chipsLabel) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+
+    const searchLabel = screen.getByText(/^search recalls$/i);
+    const searchInput = screen.getByRole('searchbox');
+    expect(searchLabel.nextElementSibling).toContainElement(searchInput);
+    expect(
+      searchInput.compareDocumentPosition(chipsLabel) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it('Class I shortcut pins Food + Class I, and Clear search restores the latest list', async () => {
+    const user = userEvent.setup();
+    const fetchMock = browseFetch();
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<App />);
+    expect(await screen.findByText('Latest Dairy')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /show all class i/i }));
+    expect(await screen.findByText('High Risk Co')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Food' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByLabelText(/classification/i)).toHaveValue('Class I');
+    expect(screen.getByRole('heading', { name: /matching recalls/i })).toBeInTheDocument();
+    // Strip hides itself once the list is already the Class I list.
+    expect(screen.queryByRole('button', { name: /show all class i/i })).not.toBeInTheDocument();
+    const classIListUrls = recallUrls(fetchMock).filter(
+      (href) => href.includes('classification=Class') && href.includes('limit=20'),
+    );
+    expect(classIListUrls.length).toBeGreaterThan(0);
+    expect(classIListUrls.every((href) => href.includes('source=food'))).toBe(true);
+
+    await user.click(screen.getByRole('button', { name: /clear search/i }));
+    expect(await screen.findByText('Latest Dairy')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /latest recalls/i })).toBeInTheDocument();
+    expect(screen.getByLabelText(/classification/i)).toHaveValue('');
+    expect(screen.queryByRole('button', { name: /clear search/i })).not.toBeInTheDocument();
   });
 
   it('ranks the current page and shows why-lines when a persona is selected', async () => {
@@ -458,6 +593,8 @@ describe('App', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     render(<App />);
+    // Home defaults to All; narrow to Food so the persona has to widen again.
+    await user.click(screen.getByRole('button', { name: 'Food' }));
     await user.type(screen.getByRole('searchbox'), 'milk');
     await user.click(
       within(screen.getByRole('searchbox').closest('form')).getByRole('button', {
@@ -624,7 +761,9 @@ describe('App', () => {
     render(<App />);
     expect(await screen.findByRole('button', { name: 'FreshPoint' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Truststone Group' })).toBeInTheDocument();
-    expect(screen.getByText(/companies with the most recalls/i)).toBeInTheDocument();
+    const chipsLabel = screen.getByText(/companies with the most recalls/i);
+    expect(chipsLabel.closest('form')).toBeNull();
+    expect(chipsLabel.closest('details')).toHaveTextContent(/browse by company/i);
 
     await user.click(screen.getByRole('button', { name: 'FreshPoint' }));
     expect(await screen.findByText('Chicken salad')).toBeInTheDocument();
@@ -790,27 +929,41 @@ describe('App', () => {
     expect(screen.queryByRole('heading', { name: /who is this for/i })).not.toBeInTheDocument();
   });
 
-  it('changes idle copy when the source toggle changes', async () => {
+  it('reloads the list for the chosen source and resets to page 1 without a keyword', async () => {
     const user = userEvent.setup();
+    const fetchMock = browseFetch();
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<App />);
+    expect(await screen.findByText('Latest Dairy')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /next/i }));
+    await waitFor(() => {
+      expect(recallUrls(fetchMock).some((href) => href.includes('skip=20'))).toBe(true);
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Consumer' }));
+    expect(await screen.findByText('Voomf')).toBeInTheDocument();
+    expect(screen.queryByText('Latest Dairy')).not.toBeInTheDocument();
+    expect(screen.getByText(/showing 1–1 of 1/i)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /latest recalls/i })).toBeInTheDocument();
+
+    const consumerUrls = recallUrls(fetchMock).filter((href) => href.includes('source=consumer'));
+    expect(consumerUrls.length).toBeGreaterThan(0);
+    expect(consumerUrls.every((href) => href.includes('skip=0'))).toBe(true);
+    expect(consumerUrls.some((href) => /[?&]q=/.test(href))).toBe(false);
+  });
+
+  it('shows the empty browse copy when the list has no rows', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ total: 0, source: 'food', results: [] }),
+      json: async () => ({ total: 0, source: 'all', results: [] }),
     });
     vi.stubGlobal('fetch', fetchMock);
 
     render(<App />);
-    expect(
-      screen.getByText(/enter a keyword to search fda food recalls/i),
-    ).toBeInTheDocument();
-
-    await user.click(screen.getByRole('button', { name: 'Consumer' }));
-    expect(
-      screen.getByText(/enter a keyword to search cpsc consumer-product recalls/i),
-    ).toBeInTheDocument();
-
-    await user.click(screen.getByRole('button', { name: 'All' }));
-    expect(
-      screen.getByText(/enter a keyword to search fda food and cpsc consumer-product recalls/i),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/no recalls to show right now/i)).toBeInTheDocument();
+    expect(screen.queryByText(/enter a keyword/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: /who is this for/i })).not.toBeInTheDocument();
   });
 });

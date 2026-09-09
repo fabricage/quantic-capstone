@@ -1,6 +1,7 @@
 /**
  * HighRiskRecalls.test.jsx
- * Purpose: Severity copy (Class I ≠ trending) and opening a Class I recall.
+ * Purpose: Class I strip says FDA food, explains severity, opens a recall,
+ * and its shortcut asks App to filter the list.
  */
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -29,34 +30,47 @@ describe('HighRiskRecalls', () => {
     searchRecalls.mockReset();
   });
 
-  it('explains that Class I is severity, not a trending or popular list', async () => {
+  it('labels the strip FDA food and explains severity, not popularity', async () => {
     searchRecalls.mockResolvedValue({ total: 1, results: [classIRecall] });
-    render(<HighRiskRecalls onSelect={() => {}} />);
+    render(<HighRiskRecalls onSelect={() => {}} onBrowse={() => {}} />);
 
     expect(screen.getByRole('heading', { name: /class i high-risk/i })).toBeInTheDocument();
-    expect(screen.getByText(/severity, not popularity/i)).toBeInTheDocument();
-    expect(screen.getByText(/not the same as a trending/i)).toBeInTheDocument();
-    expect(await screen.findByText('Acme Foods')).toBeInTheDocument();
+    expect(screen.getByText(/fda food only/i)).toBeInTheDocument();
+    expect(screen.getByText(/severity,\s*not popularity/i)).toBeInTheDocument();
+    expect(screen.getByText(/cpsc consumer recalls are not classified/i)).toBeInTheDocument();
+    expect(await screen.findByText('Infant formula · Acme Foods')).toBeInTheDocument();
     expect(searchRecalls).toHaveBeenCalledWith({
       source: 'food',
       classification: 'Class I',
-      limit: 5,
+      limit: 3,
     });
   });
 
-  it('opens a Class I recall when a preview card is clicked', async () => {
+  it('opens a Class I recall when a strip item is clicked', async () => {
     const user = userEvent.setup();
     const onSelect = vi.fn();
     searchRecalls.mockResolvedValue({ total: 1, results: [classIRecall] });
-    render(<HighRiskRecalls onSelect={onSelect} />);
+    render(<HighRiskRecalls onSelect={onSelect} onBrowse={() => {}} />);
 
-    await user.click(await screen.findByRole('button', { name: /view details for infant formula/i }));
+    await user.click(
+      await screen.findByRole('button', { name: /open class i recall: infant formula/i }),
+    );
     expect(onSelect).toHaveBeenCalledWith(classIRecall);
   });
 
-  it('shows an error state when the preview request fails', async () => {
+  it('calls onBrowse from the Show all Class I shortcut', async () => {
+    const user = userEvent.setup();
+    const onBrowse = vi.fn();
+    searchRecalls.mockResolvedValue({ total: 1, results: [classIRecall] });
+    render(<HighRiskRecalls onSelect={() => {}} onBrowse={onBrowse} />);
+
+    await user.click(screen.getByRole('button', { name: /show all class i/i }));
+    expect(onBrowse).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows an error state when the strip request fails', async () => {
     searchRecalls.mockRejectedValue(new Error('network'));
-    render(<HighRiskRecalls onSelect={() => {}} />);
+    render(<HighRiskRecalls onSelect={() => {}} onBrowse={() => {}} />);
     expect(await screen.findByText(/couldn’t load class i recalls/i)).toBeInTheDocument();
   });
 });

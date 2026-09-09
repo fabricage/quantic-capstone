@@ -1,9 +1,8 @@
 /**
  * SearchBar.jsx
- * Purpose: Labeled keyword form. Children slot sits between the label and
- * input (suggested company chips + recent searches).
+ * Purpose: Labeled keyword form used to narrow the browse list.
  */
-export default function SearchBar({ query = '', onChange, onSearch, children }) {
+export default function SearchBar({ query = '', onChange, onSearch }) {
   function handleSubmit(event) {
     event.preventDefault();
     onSearch(String(query ?? '').trim());
@@ -12,7 +11,6 @@ export default function SearchBar({ query = '', onChange, onSearch, children }) 
   return (
     <form className="search-bar" onSubmit={handleSubmit}>
       <label htmlFor="recall-search">Search recalls</label>
-      {children}
       <div className="search-bar-row">
         <input
           id="recall-search"

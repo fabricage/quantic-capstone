@@ -63,7 +63,8 @@ export default function RecallList({
       );
     }
     if (!query) {
-      return <StatusMessage>No results for this keyword.</StatusMessage>;
+      // Home browses with an empty keyword, so "this keyword" would be wrong.
+      return <StatusMessage>No recalls to show right now.</StatusMessage>;
     }
     return (
       <StatusMessage>

@@ -53,7 +53,7 @@ describe('RecallList', () => {
     expect(screen.getByText(/zzzxnope/i)).toBeInTheDocument();
   });
 
-  it('uses generic empty-keyword copy when the query is blank', () => {
+  it('uses browse empty copy when the query is blank', () => {
     render(
       <RecallList
         loading={false}
@@ -63,8 +63,8 @@ describe('RecallList', () => {
         results={[]}
       />,
     );
-    expect(screen.getByText(/no results for this keyword\./i)).toBeInTheDocument();
-    expect(screen.queryByText(/“/)).not.toBeInTheDocument();
+    expect(screen.getByText(/no recalls to show right now/i)).toBeInTheDocument();
+    expect(screen.queryByText(/this keyword/i)).not.toBeInTheDocument();
   });
 
   it('shows an idle prompt before the first search', () => {
