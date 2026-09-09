@@ -10,7 +10,8 @@
     "dev": "node --watch index.js",
     "start": "node index.js",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "eval": "node ../evals/run-evals.js --mock"
   },
   "dependencies": {
     "cors": "^2.8.5",
