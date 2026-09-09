@@ -90,6 +90,12 @@ body {
   color: var(--color-accent);
 }
 
+.app-nav button[aria-current='page'] {
+  background: transparent;
+  color: var(--color-accent);
+  border-bottom-color: var(--color-accent);
+}
+
 .eyebrow {
   margin: 0;
   text-transform: uppercase;
