@@ -90,6 +90,35 @@ describe('RecallDetail', () => {
     expect(screen.getByText(/full fields unavailable/i)).toBeInTheDocument();
   });
 
+  it('shows a CPSC photo in detail when the API sent Images', () => {
+    render(
+      <RecallDetail
+        recall={{
+          id: 'cpsc-26669',
+          firm: 'Voomf',
+          product: 'Crib mattress',
+          reason: 'Entrapment',
+          classification: 'Consumer Product',
+          status: '',
+          state: '',
+          recallDate: '20260806',
+          source: 'consumer',
+          imageUrl: 'https://www.cpsc.gov/s3fs-public/crib.jpg',
+          imageAlt: 'Recalled crib mattress',
+        }}
+        onBack={() => {}}
+        onSave={() => {}}
+      />,
+    );
+    expect(screen.getByRole('img')).toHaveAttribute(
+      'src',
+      'https://www.cpsc.gov/s3fs-public/crib.jpg',
+    );
+    expect(screen.getByText('Recalled crib mattress')).toBeInTheDocument();
+    expect(screen.getByText('CPSC consumer product')).toBeInTheDocument();
+    expect(screen.queryByText(/category illustration/i)).not.toBeInTheDocument();
+  });
+
   it('shows an FDA category illustration and caption when imageUrl is empty', () => {
     render(<RecallDetail recall={fullRecall} onBack={() => {}} onSave={() => {}} />);
     const img = screen.getByRole('img');

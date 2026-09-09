@@ -14,6 +14,7 @@ import RecallDetail from './components/RecallDetail.jsx';
 import RecallList from './components/RecallList.jsx';
 import SavedRecalls from './components/SavedRecalls.jsx';
 import SearchBar from './components/SearchBar.jsx';
+import SourceToggle from './components/SourceToggle.jsx';
 import StatusMessage from './components/StatusMessage.jsx';
 import { normalizeSearchQuery, useRecentSearches } from './hooks/useRecentSearches.js';
 import { useSavedRecalls } from './hooks/useSavedRecalls.js';
@@ -36,6 +37,7 @@ export default function App() {
   const { recent, rememberSearch, clearRecent } = useRecentSearches();
   const [query, setQuery] = useState('');
   const [activeQuery, setActiveQuery] = useState('');
+  const [source, setSource] = useState('food');
   const [filters, setFilters] = useState(EMPTY_FILTERS);
   const [results, setResults] = useState([]);
   const [total, setTotal] = useState(0);
@@ -53,6 +55,7 @@ export default function App() {
   const [personaRanking, setPersonaRanking] = useState(false);
   const [personaFallback, setPersonaFallback] = useState(false);
   const [recentFailed, setRecentFailed] = useState(false);
+  const [consumerFailed, setConsumerFailed] = useState(false);
   const [classIFailed, setClassIFailed] = useState(false);
   const pendingScrollRef = useRef(false);
   const rankGenerationRef = useRef(0);
@@ -115,7 +118,7 @@ export default function App() {
         dateTo: filters.dateTo,
         page,
         location: '',
-        source: 'food',
+        source,
       },
     }).then((data) => {
       if (generation !== rankGenerationRef.current) return;
@@ -145,14 +148,29 @@ export default function App() {
     filters.dateFrom,
     filters.dateTo,
     page,
+    source,
   ]);
 
-  async function fetchResults(trimmed, nextFilters, nextPage = 1, nextSize = pageSize) {
+  function filtersForRequest(nextFilters, nextSource = source) {
+    if (nextSource === 'consumer') {
+      return { ...nextFilters, classification: '', status: '' };
+    }
+    return nextFilters;
+  }
+
+  async function fetchResults(
+    trimmed,
+    nextFilters,
+    nextPage = 1,
+    nextSize = pageSize,
+    nextSource = source,
+  ) {
     if (isInvalidDateRange(nextFilters.dateFrom, nextFilters.dateTo)) {
       return;
     }
 
     const size = normalizePageSize(nextSize);
+    const requestFilters = filtersForRequest(nextFilters, nextSource);
     setLoading(true);
     setSearchFailed(false);
 
@@ -162,10 +180,11 @@ export default function App() {
         q: trimmed,
         skip: pageToSkip(requestedPage, size),
         limit: size,
-        classification: nextFilters.classification,
-        status: nextFilters.status,
-        dateFrom: nextFilters.dateFrom,
-        dateTo: nextFilters.dateTo,
+        classification: requestFilters.classification,
+        status: requestFilters.status,
+        dateFrom: requestFilters.dateFrom,
+        dateTo: requestFilters.dateTo,
+        source: nextSource,
       });
       const totalCount = data.total ?? 0;
       const clamped = clampPage(requestedPage, totalCount, size);
@@ -174,10 +193,11 @@ export default function App() {
           q: trimmed,
           skip: pageToSkip(clamped, size),
           limit: size,
-          classification: nextFilters.classification,
-          status: nextFilters.status,
-          dateFrom: nextFilters.dateFrom,
-          dateTo: nextFilters.dateTo,
+          classification: requestFilters.classification,
+          status: requestFilters.status,
+          dateFrom: requestFilters.dateFrom,
+          dateTo: requestFilters.dateTo,
+          source: nextSource,
         });
       }
       setPage(clamped);
@@ -238,6 +258,15 @@ export default function App() {
     fetchResults(activeQuery, filters, clamped, pageSize);
   }
 
+  function handleSourceChange(nextSource) {
+    setSource(nextSource);
+    setPage(1);
+    if (hasSearched) {
+      pendingScrollRef.current = true;
+      fetchResults(activeQuery, filters, 1, pageSize, nextSource);
+    }
+  }
+
   function handlePageSizeChange(nextSize) {
     const size = normalizePageSize(nextSize);
     setPageSize(size);
@@ -276,7 +305,7 @@ export default function App() {
         <p className="eyebrow">FDA food enforcement</p>
         <h1>The Recall Ledger</h1>
         <p className="lede">
-          Search recent FDA food recalls by product or recalling firm.
+          Search FDA food and CPSC consumer-product recalls by product or firm.
         </p>
         <nav className="app-nav" aria-label="Primary">
           <button
@@ -314,10 +343,12 @@ export default function App() {
               onClear={clearRecent}
             />
           </SearchBar>
+          <SourceToggle source={source} onChange={handleSourceChange} />
           <FilterBar
             filters={filters}
             onChange={handleFiltersChange}
             dateRangeError={dateRangeError}
+            source={source}
           />
           <PersonaCards
             personas={personas}
@@ -331,12 +362,21 @@ export default function App() {
                   We couldn’t load the latest FDA recalls. You can still search above.
                 </StatusMessage>
               ) : null}
+              {consumerFailed ? (
+                <StatusMessage>
+                  We couldn’t load the latest consumer recalls. You can still search above.
+                </StatusMessage>
+              ) : null}
               {classIFailed ? (
                 <StatusMessage>
                   We couldn’t load Class I high-risk recalls. You can still search above.
                 </StatusMessage>
               ) : null}
-              <RecentRecalls onSelect={handleSelect} onFailed={setRecentFailed} />
+              <RecentRecalls
+                onSelect={handleSelect}
+                onFailed={setRecentFailed}
+                onConsumerFailed={setConsumerFailed}
+              />
               <HighRiskRecalls onSelect={handleSelect} onFailed={setClassIFailed} />
             </div>
           ) : (
@@ -359,7 +399,7 @@ export default function App() {
                 total={total}
                 rangeStart={range.start}
                 rangeEnd={range.end}
-                filtersActive={hasActiveFilters(filters)}
+                filtersActive={hasActiveFilters(filtersForRequest(filters))}
                 dateFrom={dateRangeError ? '' : filters.dateFrom}
                 dateTo={dateRangeError ? '' : filters.dateTo}
                 onSelect={handleSelect}

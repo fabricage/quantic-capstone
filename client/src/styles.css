@@ -233,6 +233,53 @@ body {
   flex-wrap: wrap;
 }
 
+.source-toggle {
+  margin: 0 0 0.75rem;
+  padding: 0;
+  border: 0;
+}
+
+.source-toggle legend {
+  font-family: system-ui, sans-serif;
+  font-weight: 600;
+  padding: 0;
+}
+
+.source-toggle-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.4rem;
+}
+
+.source-toggle-button {
+  font-family: system-ui, sans-serif;
+  font-weight: 600;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0.4rem 0.85rem;
+  background: var(--paper);
+  cursor: pointer;
+}
+
+.source-toggle-button[aria-pressed='true'] {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-color: var(--accent);
+}
+
+.recall-source-badge {
+  font-family: system-ui, sans-serif;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.home-columns--two {
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+}
+
 .filter-bar {
   margin: 0 0 1.25rem;
   padding: 0.75rem 0 0;

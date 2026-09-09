@@ -65,6 +65,15 @@ describe('FilterBar', () => {
     expect(onChange).toHaveBeenCalledWith(EMPTY_FILTERS);
   });
 
+  it('hides classification and status when the source is consumer', () => {
+    render(
+      <FilterBar filters={EMPTY_FILTERS} onChange={() => {}} source="consumer" />,
+    );
+    expect(screen.queryByLabelText(/classification/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/^status$/i)).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/^from$/i)).toBeInTheDocument();
+  });
+
   it('shows an inline alert when the date range is invalid', () => {
     render(
       <FilterBar
