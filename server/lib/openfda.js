@@ -3,6 +3,8 @@
  * Purpose: Build openFDA food-enforcement search queries and fetch recall records.
  */
 
+import { fdaCountrySearchClause } from './location.js';
+
 const OPENFDA_BASE = 'https://api.fda.gov/food/enforcement.json';
 
 /**
@@ -94,6 +96,7 @@ export function buildSearchQuery({
   status,
   dateFrom,
   dateTo,
+  location,
 } = {}) {
   const clauses = [];
   const term = formatKeyword(q);
@@ -106,6 +109,8 @@ export function buildSearchQuery({
   if (statusClause) clauses.push(statusClause);
   const dateClause = formatDateRange(dateFrom, dateTo);
   if (dateClause) clauses.push(dateClause);
+  const countryClause = fdaCountrySearchClause(location);
+  if (countryClause) clauses.push(countryClause);
   return clauses.join(' AND ');
 }
 
@@ -130,6 +135,7 @@ export async function fetchRecalls(
     status = '',
     dateFrom = '',
     dateTo = '',
+    location = '',
   } = {},
   fetchImpl = fetch,
 ) {
@@ -144,6 +150,7 @@ export async function fetchRecalls(
     status,
     dateFrom,
     dateTo,
+    location,
   });
   if (search) {
     url.searchParams.set('search', search);

@@ -7,6 +7,7 @@ import { Router } from 'express';
 import { fetchCpscRecalls, paginateCpscRecalls } from '../lib/cpsc.js';
 import { fetchCpscWebsiteRecalls } from '../lib/cpscWebsite.js';
 import { fetchFdaWebsiteRecalls } from '../lib/fdaWebsite.js';
+import { originMatchesFilter, parseLocationFilter } from '../lib/location.js';
 import {
   mergeRecallLists,
   normalizeConsumerRecalls,
@@ -92,6 +93,22 @@ function shouldMergeFoodWebsite({ classification, status, location }) {
   return !classification && !status && !location;
 }
 
+function shouldMergeConsumerWebsite(location) {
+  // CPSC listing HTML rarely has manufacturer country.
+  return !location;
+}
+
+/**
+ * Filter normalized rows in memory.
+ * Why: CPSC ManufacturerCountry query param is unreliable — we classify
+ * ManufacturerCountries after fetch, then drop unknown origin when a
+ * filter is set.
+ */
+function filterByOrigin(rows, location) {
+  if (!location) return rows;
+  return rows.filter((row) => originMatchesFilter(row.origin, location));
+}
+
 export function createRecallsRouter({ fetchImpl = fetch } = {}) {
   const router = Router();
 
@@ -105,16 +122,17 @@ export function createRecallsRouter({ fetchImpl = fetch } = {}) {
     const limit = parseLimit(req.query.limit);
     const skip = parseSkip(req.query.skip);
     const source = resolveSource(req.query.source);
+    const location = parseLocationFilter(req.query.location);
 
     if (source === 'food') {
       const food = await loadFood(
-        { q, classification, status, dateFrom, dateTo, limit, skip },
+        { q, classification, status, dateFrom, dateTo, limit, skip, location },
         fetchImpl,
       );
       if (!food.ok) return failUpstream(res);
       let results = food.results;
       let total = food.total;
-      if (shouldMergeFoodWebsite({ classification, status, location: '' })) {
+      if (shouldMergeFoodWebsite({ classification, status, location })) {
         const website = await loadFdaWebsite({ q, dateFrom, dateTo }, fetchImpl);
         results = mergeRecallLists(website, results);
         if (food.empty404) total = results.length;
@@ -132,8 +150,10 @@ export function createRecallsRouter({ fetchImpl = fetch } = {}) {
     if (source === 'consumer') {
       const consumer = await loadConsumer({ q, dateFrom, dateTo }, fetchImpl);
       if (!consumer.ok) return failUpstream(res);
-      const website = await loadCpscWebsite({ q, dateFrom, dateTo }, fetchImpl);
-      const merged = mergeRecallLists(website, consumer.results);
+      const website = shouldMergeConsumerWebsite(location)
+        ? await loadCpscWebsite({ q, dateFrom, dateTo }, fetchImpl)
+        : [];
+      const merged = filterByOrigin(mergeRecallLists(website, consumer.results), location);
       const page = paginateCpscRecalls(merged, skip, limit);
       return noStore(res).json({
         total: page.total,
@@ -145,7 +165,7 @@ export function createRecallsRouter({ fetchImpl = fetch } = {}) {
     const foodOverFetch = Math.min(100, skip + limit + 40);
     const [foodSettled, consumerSettled] = await Promise.allSettled([
       loadFood(
-        { q, classification, status, dateFrom, dateTo, limit: foodOverFetch, skip: 0 },
+        { q, classification, status, dateFrom, dateTo, limit: foodOverFetch, skip: 0, location },
         fetchImpl,
       ),
       loadConsumer({ q, dateFrom, dateTo }, fetchImpl),
@@ -158,16 +178,19 @@ export function createRecallsRouter({ fetchImpl = fetch } = {}) {
 
     let foodResults = food.ok ? food.results : [];
     let consumerResults = consumer.ok ? consumer.results : [];
-    if (food.ok && shouldMergeFoodWebsite({ classification, status, location: '' })) {
+    if (food.ok && shouldMergeFoodWebsite({ classification, status, location })) {
       foodResults = mergeRecallLists(
         await loadFdaWebsite({ q, dateFrom, dateTo }, fetchImpl),
         foodResults,
       );
     }
     if (consumer.ok) {
-      consumerResults = mergeRecallLists(
-        await loadCpscWebsite({ q, dateFrom, dateTo }, fetchImpl),
-        consumerResults,
+      const website = shouldMergeConsumerWebsite(location)
+        ? await loadCpscWebsite({ q, dateFrom, dateTo }, fetchImpl)
+        : [];
+      consumerResults = filterByOrigin(
+        mergeRecallLists(website, consumerResults),
+        location,
       );
     }
 

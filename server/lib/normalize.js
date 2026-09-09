@@ -3,6 +3,7 @@
  * Purpose: Map openFDA food and CPSC consumer records onto the shared recall shape.
  */
 import { cpscSortDate } from './cpscDates.js';
+import { originFromCpscRecord, originFromFdaRecord } from './location.js';
 
 /**
  * Compact a date to YYYYMMDD, or '' when it is missing/invalid.
@@ -99,8 +100,8 @@ export function normalizeRecall(raw) {
     url: '',
     imageUrl: '',
     imageAlt: '',
-    country: '',
-    origin: '',
+    country: text(record.country),
+    origin: originFromFdaRecord(record),
   };
 }
 
@@ -129,6 +130,10 @@ export function normalizeConsumerRecall(raw) {
   const announced = toRecallDate(record.RecallDate);
   const publishedRaw = toRecallDate(record.LastPublishDate);
   const photo = firstCpscImage(record.Images);
+  const origin = originFromCpscRecord(record);
+  const countryText = Array.isArray(record.ManufacturerCountries)
+    ? text(record.ManufacturerCountries[0]?.Country || record.ManufacturerCountries[0]?.Name || record.ManufacturerCountries[0] || '')
+    : '';
 
   return {
     id: `cpsc-${number || recallId}`,
@@ -147,8 +152,8 @@ export function normalizeConsumerRecall(raw) {
     url: text(record.URL || record.RecallURL),
     imageUrl: photo.imageUrl,
     imageAlt: photo.imageAlt,
-    country: '',
-    origin: '',
+    country: countryText,
+    origin,
   };
 }
 
@@ -220,6 +225,7 @@ export function mergeRecallLists(website = [], api = []) {
       if (!row.firm) row.firm = twin.firm || '';
       if (!row.reason) row.reason = twin.reason || '';
       if (!row.country) row.country = twin.country || '';
+      if (!row.origin) row.origin = twin.origin || '';
     }
     merged.push(row);
     mark(row);
