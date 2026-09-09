@@ -11,6 +11,7 @@ import {
   normalizeFoodRecall,
   normalizeRecall,
   normalizeRecalls,
+  interleaveBySource,
   sortRecallsByDateDesc,
   toRecallDate,
 } from '../lib/normalize.js';
@@ -248,6 +249,41 @@ describe('sortRecallsByDateDesc', () => {
       { id: 'd', publishedDate: '20240101', recallDate: '20240101' },
     ]);
     expect(sorted.map((r) => r.id)).toEqual(['a', 'c', 'b', 'd']);
+  });
+});
+
+describe('interleaveBySource', () => {
+  it('alternates food and consumer, each side newest first', () => {
+    const food = [
+      { id: 'f-old', source: 'food', publishedDate: '20240101' },
+      { id: 'f-new', source: 'food', publishedDate: '20240105' },
+    ];
+    const consumer = [
+      { id: 'c-old', source: 'consumer', publishedDate: '20240102' },
+      { id: 'c-new', source: 'consumer', publishedDate: '20240109' },
+    ];
+    expect(interleaveBySource(food, consumer).map((r) => r.id)).toEqual([
+      'f-new',
+      'c-new',
+      'f-old',
+      'c-old',
+    ]);
+  });
+
+  it('appends the longer side once the shorter one runs out', () => {
+    const food = [{ id: 'f1', publishedDate: '20240103' }];
+    const consumer = [
+      { id: 'c1', publishedDate: '20240103' },
+      { id: 'c2', publishedDate: '20240102' },
+      { id: 'c3', publishedDate: '20240101' },
+    ];
+    expect(interleaveBySource(food, consumer).map((r) => r.id)).toEqual(['f1', 'c1', 'c2', 'c3']);
+  });
+
+  it('tolerates an empty or missing side', () => {
+    expect(interleaveBySource([], [{ id: 'c1' }]).map((r) => r.id)).toEqual(['c1']);
+    expect(interleaveBySource([{ id: 'f1' }], undefined).map((r) => r.id)).toEqual(['f1']);
+    expect(interleaveBySource(undefined, undefined)).toEqual([]);
   });
 });
 
