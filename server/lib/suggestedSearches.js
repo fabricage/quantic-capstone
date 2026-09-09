@@ -2,10 +2,10 @@
  * suggestedSearches.js
  * Purpose: Turn FDA firm counts + CPSC samples into 8 chips per source.
  *
- * Website-fresh firms (press-release / listing HTML) are prepended so a
- * company that just posted is visible even if it is not yet in the
- * frequency tally for the selected lookback window. CPSC has no count=
- * aggregation — we tally names ourselves.
+ * Website-fresh firms (press-release / listing HTML) fill leftover slots
+ * after the highest-count firms, so a brand-new posting can still appear
+ * without crowding out “most recalls.” CPSC has no count= aggregation —
+ * we tally names ourselves.
  *
  * Each chip is `{ phrase, count }` so the UI can show how many recalls
  * that firm has in the window.
@@ -180,9 +180,9 @@ function phrasesFromRecentFirms(list) {
 }
 
 /**
- * Website-fresh names first, then highest counts. Each chip is
- * `{ phrase, count }` so the UI can show how many recalls that firm has.
- * A website-only name keeps count 0 until it also appears in the tally.
+ * Highest counts first so the chips match “companies with the most recalls.”
+ * Website-fresh names still appear, but only in leftover slots when they
+ * are not already in the tally (count 0).
  */
 function mergeFirmPhrases(recentFirms, counts) {
   const seen = new Set();
@@ -208,12 +208,12 @@ function mergeFirmPhrases(recentFirms, counts) {
     items.push({ phrase, count: Number.isFinite(count) ? count : 0 });
   }
 
-  for (const phrase of phrasesFromRecentFirms(recentFirms)) {
-    push(phrase, countByKey.get(phrase.toLowerCase()) ?? 0);
-    if (items.length >= SUGGESTED_PER_SOURCE) return items;
-  }
   for (const row of frequency) {
     push(row.phrase, row.count);
+    if (items.length >= SUGGESTED_PER_SOURCE) return items;
+  }
+  for (const phrase of phrasesFromRecentFirms(recentFirms)) {
+    push(phrase, countByKey.get(phrase.toLowerCase()) ?? 0);
     if (items.length >= SUGGESTED_PER_SOURCE) break;
   }
   return items;

@@ -113,15 +113,18 @@ describe('GET /api/trending-searches', () => {
     expect(fdaUrls.some((href) => href.includes('count=recalling_firm.exact'))).toBe(true);
   });
 
-  it('puts website-fresh firms first in each group', async () => {
+  it('orders chips by recall count and keeps website-only names last', async () => {
     const app = createApp({ fetchImpl: trendingFetch() });
     const res = await request(app).get('/api/trending-searches');
-    expect(res.body.groups[0].suggestions[0]).toEqual(
-      expect.objectContaining({ phrase: 'FreshPoint' }),
-    );
-    expect(res.body.groups[1].suggestions[0]).toEqual(
-      expect.objectContaining({ phrase: 'Truststone Group' }),
-    );
+    expect(res.body.groups[0].suggestions.map((row) => row.phrase)).toEqual([
+      'Acme Foods Inc',
+      'Dairy Co',
+      'FreshPoint',
+    ]);
+    expect(res.body.groups[1].suggestions.map((row) => row.phrase)).toEqual([
+      'Voomf of China',
+      'Truststone Group',
+    ]);
   });
 
   it('uses a ~30-day FDA report_date window for ?window=1m', async () => {

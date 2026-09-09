@@ -99,7 +99,7 @@ describe('buildSuggestedSearchGroups', () => {
     expect(payload.groups[1].suggestions).toEqual([{ phrase: 'Acme Toys', count: 3 }]);
   });
 
-  it('prepends website-fresh firms ahead of the frequency list', () => {
+  it('orders firms by recall count and keeps website-only names in leftover slots', () => {
     const payload = buildSuggestedSearchGroups({
       foodCounts: [
         { term: 'Acme Foods Inc', count: 40 },
@@ -109,12 +109,14 @@ describe('buildSuggestedSearchGroups', () => {
       recentFoodFirms: ['FreshPoint', 'Acme Foods Inc., dba Other'],
       recentConsumerFirms: ['Truststone Group'],
     });
-    expect(payload.groups[0].suggestions.slice(0, 3)).toEqual([
-      { phrase: 'FreshPoint', count: 0 },
+    expect(payload.groups[0].suggestions).toEqual([
       { phrase: 'Acme Foods Inc', count: 40 },
       { phrase: 'Dairy Co', count: 12 },
+      { phrase: 'FreshPoint', count: 0 },
     ]);
-    expect(payload.groups[1].suggestions[0]).toEqual({ phrase: 'Truststone Group', count: 0 });
-    expect(payload.groups[1].suggestions.map((row) => row.phrase)).toContain('Voomf');
+    expect(payload.groups[1].suggestions).toEqual([
+      { phrase: 'Voomf', count: 5 },
+      { phrase: 'Truststone Group', count: 0 },
+    ]);
   });
 });
