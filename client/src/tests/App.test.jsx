@@ -1,7 +1,7 @@
 /**
  * App.test.jsx
  * Purpose: Brand, company chips on top, browse-first home list, BFF search,
- * filters, detail, and pagination.
+ * filters, detail, pagination, and the static FAQ.
  */
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -363,6 +363,7 @@ describe('App', () => {
     expect(screen.queryByText(/class i high-risk/i)).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: /who is this for/i })).not.toBeInTheDocument();
     expect(recallUrls(fetchMock).some((href) => href.includes('classification='))).toBe(false);
+    expect(screen.getByRole('heading', { name: /how to read a recall/i })).toBeInTheDocument();
   });
 
   it('keeps the company section first — above the source toggle, search box, and list', async () => {
@@ -695,6 +696,32 @@ describe('App', () => {
     expect(consumerUrls.length).toBeGreaterThan(0);
     expect(consumerUrls.every((href) => href.includes('skip=0'))).toBe(true);
     expect(consumerUrls.some((href) => /[?&]q=/.test(href))).toBe(false);
+  });
+
+  it('keeps the FAQ below the list on search, saved, and detail', async () => {
+    const user = userEvent.setup();
+    const fetchMock = browseFetch();
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<App />);
+    const firstCard = await screen.findByRole('button', {
+      name: /view details for cheddar cheese/i,
+    });
+    const faq = screen.getByRole('heading', { name: /how to read a recall/i });
+    expect(
+      firstCard.compareDocumentPosition(faq) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+
+    await user.click(screen.getByRole('button', { name: 'Saved' }));
+    expect(screen.getByRole('heading', { name: /saved recalls/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /how to read a recall/i })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Search' }));
+    await user.click(
+      await screen.findByRole('button', { name: /view details for cheddar cheese/i }),
+    );
+    expect(await screen.findByRole('button', { name: /back/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /how to read a recall/i })).toBeInTheDocument();
   });
 
   it('shows the empty browse copy when the list has no rows', async () => {

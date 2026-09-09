@@ -808,3 +808,124 @@ body {
   overflow-wrap: anywhere;
   line-height: 1.55;
 }
+
+/* Quiet footer glossary. No card chrome — a top rule and open/close rows,
+   so it reads as reference, not another module competing with the list. */
+.recall-faq {
+  margin: 3.25rem 0 0;
+  padding: 2rem 0 0;
+  border-top: 1px solid var(--line);
+}
+
+.recall-faq-eyebrow {
+  margin: 0 0 0.35rem;
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.recall-faq-title {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 1.55rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.recall-faq-lede {
+  margin: 0.45rem 0 1.15rem;
+  max-width: 38rem;
+  font-family: var(--font-sans);
+  font-size: 0.95rem;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.recall-faq-list {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--line);
+}
+
+.recall-faq-item {
+  border-bottom: 1px solid var(--line);
+}
+
+.recall-faq-item summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 0.85rem 1.75rem 0.85rem 0;
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 0.98rem;
+  line-height: 1.35;
+  position: relative;
+}
+
+.recall-faq-item summary::-webkit-details-marker {
+  display: none;
+}
+
+.recall-faq-item summary::after {
+  content: "+";
+  position: absolute;
+  right: 0;
+  top: 0.85rem;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.recall-faq-item[open] summary::after {
+  content: "–";
+}
+
+.recall-faq-item summary:hover {
+  color: var(--accent);
+}
+
+.recall-faq-item summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+.recall-faq-body {
+  padding: 0 0 1.1rem;
+}
+
+.recall-faq-body p {
+  margin: 0 0 0.7rem;
+  max-width: 38rem;
+  font-size: 0.92rem;
+  color: var(--ink);
+  line-height: 1.55;
+}
+
+.recall-faq-body p:last-child {
+  margin-bottom: 0;
+}
+
+.recall-faq-body dl {
+  margin: 0.35rem 0 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.recall-faq-term dt {
+  font-family: var(--font-sans);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--accent);
+}
+
+.recall-faq-term dd {
+  margin: 0.15rem 0 0;
+  max-width: 38rem;
+  font-size: 0.9rem;
+  color: var(--ink);
+  line-height: 1.5;
+}
