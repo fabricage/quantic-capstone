@@ -72,6 +72,18 @@ describe('FilterBar', () => {
     expect(screen.queryByLabelText(/classification/i)).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/^status$/i)).not.toBeInTheDocument();
     expect(screen.getByLabelText(/^from$/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^location$/i)).toBeInTheDocument();
+  });
+
+  it('emits location when the origin select changes', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(<FilterBar filters={EMPTY_FILTERS} onChange={onChange} />);
+    await user.selectOptions(screen.getByLabelText(/^location$/i), 'china');
+    expect(onChange).toHaveBeenLastCalledWith({
+      ...EMPTY_FILTERS,
+      location: 'china',
+    });
   });
 
   it('shows an inline alert when the date range is invalid', () => {

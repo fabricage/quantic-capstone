@@ -5,6 +5,7 @@
 import { useEffect } from 'react';
 import { categoryImageAlt, matchCategory } from '../lib/categoryImage.js';
 import { formatRecallDate } from '../lib/dates.js';
+import { originFieldLabel, originShortLabel } from '../lib/originLabels.js';
 import RecallImage from './RecallImage.jsx';
 import StatusMessage from './StatusMessage.jsx';
 
@@ -104,6 +105,7 @@ export default function RecallDetail({ recall, onBack, onSave, saved = false }) 
       <dl className="recall-detail-fields">
         <Field label="Source" value={sourceLabel} />
         <Field label="Firm" value={recall.firm} />
+        <Field label={originFieldLabel(recall)} value={originShortLabel(recall.origin)} />
         <Field label="Classification" value={recall.classification} />
         <Field label="Status" value={recall.status} />
         <Field label="State" value={recall.state} />

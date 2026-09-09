@@ -38,3 +38,21 @@ describe('rankRecallsForPersona', () => {
     ).resolves.toEqual({ fallback: true });
   });
 });
+
+describe('searchRecalls', () => {
+  it('forwards location onto /api/recalls', async () => {
+    vi.stubEnv('VITE_API_BASE_URL', '');
+    vi.resetModules();
+    const { searchRecalls } = await import('../api.js');
+    const fetchImpl = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ total: 0, results: [] }),
+    });
+    await searchRecalls({ q: 'crib', source: 'consumer', location: 'china', limit: 5 }, fetchImpl);
+    expect(fetchImpl).toHaveBeenCalled();
+    const requested = String(fetchImpl.mock.calls[0][0]);
+    expect(requested).toContain('/api/recalls');
+    expect(requested).toContain('location=china');
+    expect(requested).toContain('source=consumer');
+  });
+});

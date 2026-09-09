@@ -105,6 +105,7 @@ describe('RecallDetail', () => {
           source: 'consumer',
           imageUrl: 'https://www.cpsc.gov/s3fs-public/crib.jpg',
           imageAlt: 'Recalled crib mattress',
+          origin: 'china',
         }}
         onBack={() => {}}
         onSave={() => {}}
@@ -116,13 +117,23 @@ describe('RecallDetail', () => {
     );
     expect(screen.getByText('Recalled crib mattress')).toBeInTheDocument();
     expect(screen.getByText('CPSC consumer product')).toBeInTheDocument();
+    expect(screen.getByText('Manufacturer country')).toBeInTheDocument();
+    expect(screen.getByText('China')).toBeInTheDocument();
     expect(screen.queryByText(/category illustration/i)).not.toBeInTheDocument();
   });
 
   it('shows an FDA category illustration and caption when imageUrl is empty', () => {
-    render(<RecallDetail recall={fullRecall} onBack={() => {}} onSave={() => {}} />);
+    render(
+      <RecallDetail
+        recall={{ ...fullRecall, origin: 'usa' }}
+        onBack={() => {}}
+        onSave={() => {}}
+      />,
+    );
     const img = screen.getByRole('img');
     expect(img).toHaveAttribute('src', '/category-images/formula.svg');
     expect(screen.getByText(/category illustration/i)).toBeInTheDocument();
+    expect(screen.getByText('Recalling-firm country')).toBeInTheDocument();
+    expect(screen.getByText('USA')).toBeInTheDocument();
   });
 });
