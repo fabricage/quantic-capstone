@@ -62,6 +62,18 @@ The public site moves to the registrar domain. The API **stays** on Render (`htt
 
 CORS errors after the move almost always mean `CLIENT_ORIGIN` still lists `*.onrender.com` (the old static-site origin) instead of `https://www.getproductrecall.com` and `https://getproductrecall.com`. Browsers send `Origin: https://www.getproductrecall.com`. If that string is not on the allow-list, the API omits `Access-Control-Allow-Origin` and the UI looks “broken” even though `/health` still works from curl (curl sends no `Origin`).
 
+A second, equally common failure: the **static build is calling the wrong API host**. Vite bakes `VITE_API_BASE_URL` into the JS file. If that string is a different Render service (a random suffix such as `recall-ledger-api-xxxxx.onrender.com`) than the one whose `CLIENT_ORIGIN` you just set, **both FDA and CPSC fail in the browser** — home previews and search all look empty or “couldn’t load,” while curl against the canonical API still looks fine.
+
+**(me) How to check and fix**
+
+1. Open https://www.getproductrecall.com/, View Source, open the `/assets/index-….js` file, and search for `onrender.com`.
+2. That value **must** be `https://recall-ledger-api.onrender.com` (no trailing slash, no extra suffix).
+3. On the **static site that owns the custom domain**, set `VITE_API_BASE_URL` to that exact URL → **Clear build cache & deploy**.
+4. DevTools → Network: `/api/recalls` must go to `recall-ledger-api.onrender.com`. If you still see another `*.onrender.com` API host, the new build is not what the custom domain is serving (wrong service, or CDN/cache).
+5. Confirm **that** API service’s `CLIENT_ORIGIN` includes `https://www.getproductrecall.com,https://getproductrecall.com`.
+
+`https://recall-ledger-web.onrender.com` is the Blueprint static site and should already bake the canonical API URL. The public hostname must be attached to **that** static site, not an older duplicate.
+
 ## (me) Smoke checks
 
 Free-tier Web Services spin down after idle. The **first** request after idle can take **30–60 seconds**. Wait; do not assume a timeout means a bad deploy.
