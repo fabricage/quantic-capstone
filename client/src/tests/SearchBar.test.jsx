@@ -1,6 +1,6 @@
 /**
  * SearchBar.test.jsx
- * Purpose: Submit trims the query, onChange fires while typing, children slot renders.
+ * Purpose: Submit trims the query and onChange fires while typing.
  */
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -27,16 +27,10 @@ describe('SearchBar', () => {
     expect(onChange.mock.calls.map((call) => call[0]).join('')).toContain('a');
   });
 
-  it('renders the children slot between the label and the input', () => {
-    render(
-      <SearchBar query="" onChange={() => {}} onSearch={() => {}}>
-        <div data-testid="chip-slot">chips go here</div>
-      </SearchBar>,
-    );
+  it('keeps the label directly above the input with nothing in between', () => {
+    render(<SearchBar query="" onChange={() => {}} onSearch={() => {}} />);
     const label = screen.getByText(/search recalls/i);
-    const slot = screen.getByTestId('chip-slot');
     const input = screen.getByRole('searchbox');
-    expect(label.compareDocumentPosition(slot) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(slot.compareDocumentPosition(input) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(label.nextElementSibling).toContainElement(input);
   });
 });
