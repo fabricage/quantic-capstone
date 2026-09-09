@@ -31,12 +31,11 @@ Hostnames are **not** hardcoded in app logic. The static build uses `VITE_API_BA
 - Browse-first home: the newest FDA + CPSC recalls load as a paged list before anyone types
 - Persona ranking API (`/api/personas`, `/api/persona-rank`) kept server-side as an experiment; not shown in the UI
 - Static FAQ at the bottom of every view: FDA Class I / II / III, Ongoing / Completed / Terminated, and why CPSC cards have neither
-- Three.js recall tiles on list cards and the detail page (category glyph for FDA, photo inset for CPSC); SVG/photo fallback when WebGL is missing
 - Predictable empty / error copy and a React error boundary (no blank screens, no raw upstream dumps)
 
 ## Stack
 
-- **Client:** React 18 + Vite 6 (JavaScript, plain CSS) + Three.js recall tiles
+- **Client:** React 18 + Vite 6 (JavaScript, plain CSS)
 - **Server:** Node 18+ (20 recommended) + Express (ES modules)
 - **Data:** [openFDA food enforcement](https://open.fda.gov/apis/food/enforcement/) and CPSC (server-side only)
 - **Tests:** Vitest, React Testing Library, supertest
