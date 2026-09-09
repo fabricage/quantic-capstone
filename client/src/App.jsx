@@ -332,7 +332,7 @@ export default function App() {
   return (
     <div className="app">
       <header className="app-header">
-        <p className="eyebrow">FDA food enforcement</p>
+        <p className="eyebrow">FDA food and CPSC consumer products</p>
         <h1>The Recall Ledger</h1>
         <p className="lede">
           Search FDA food and CPSC consumer-product recalls by product or firm.

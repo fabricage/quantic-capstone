@@ -23,6 +23,10 @@ describe('App', () => {
   it('renders the brand name', () => {
     render(<App />);
     expect(screen.getByRole('heading', { name: /the recall ledger/i })).toBeInTheDocument();
+    expect(screen.getByText(/fda food and cpsc consumer products/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/search fda food and cpsc consumer-product recalls/i),
+    ).toBeInTheDocument();
   });
 
   it('searches through /api/recalls and never calls api.fda.gov', async () => {
