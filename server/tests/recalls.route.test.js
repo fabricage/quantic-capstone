@@ -14,6 +14,35 @@ function jsonResponse(status, body) {
   };
 }
 
+function sampleCpsc(overrides = {}) {
+  return {
+    RecallID: 10904,
+    RecallNumber: '26669',
+    RecallDate: '2026-08-06T00:00:00',
+    LastPublishDate: '2026-08-07T00:00:00',
+    Title: 'Play Yard and Crib Mattresses Recalled',
+    URL: 'https://www.cpsc.gov/Recalls/2026/example',
+    Description: 'Mattress recall',
+    Products: [{ Name: 'Crib mattress' }],
+    Hazards: [{ Name: 'Entrapment' }],
+    Manufacturers: [],
+    Importers: [{ Name: 'Voomf' }],
+    Retailers: [],
+    Images: [{ URL: 'https://www.cpsc.gov/s3fs-public/crib.jpg', Caption: 'Crib' }],
+    ...overrides,
+  };
+}
+
+function fetchByHost({ fda, cpsc } = {}) {
+  return vi.fn().mockImplementation((url) => {
+    const href = String(url);
+    if (href.includes('saferproducts.gov')) {
+      return typeof cpsc === 'function' ? cpsc(href) : jsonResponse(200, cpsc ?? []);
+    }
+    return typeof fda === 'function' ? fda(href) : jsonResponse(200, fda ?? sampleOpenFda());
+  });
+}
+
 function sampleOpenFda(overrides = {}) {
   return {
     meta: {
@@ -145,5 +174,113 @@ describe('GET /api/recalls', () => {
     expect(calledUrl.searchParams.get('skip')).toBe('20');
     expect(calledUrl.searchParams.get('limit')).toBe('20');
     expect(calledUrl.searchParams.get('search')).toContain('classification:"Class I"');
+  });
+
+  it('defaults unknown source to food and dispatches consumer to CPSC', async () => {
+    const fetchImpl = fetchByHost({
+      fda: sampleOpenFda(),
+      cpsc: [sampleCpsc()],
+    });
+    const app = createApp({ fetchImpl });
+
+    const unknown = await request(app).get('/api/recalls').query({ source: 'widgets', q: 'milk' });
+    expect(unknown.status).toBe(200);
+    expect(unknown.body.source).toBe('food');
+    expect(unknown.body.results[0].source).toBe('food');
+
+    const consumer = await request(app).get('/api/recalls').query({ source: 'consumer', q: 'crib', limit: 5 });
+    expect(consumer.status).toBe(200);
+    expect(consumer.headers['cache-control']).toBe('no-store');
+    expect(consumer.body.source).toBe('consumer');
+    expect(consumer.body.results[0]).toMatchObject({
+      id: 'cpsc-26669',
+      source: 'consumer',
+      classification: 'Consumer Product',
+      imageUrl: 'https://www.cpsc.gov/s3fs-public/crib.jpg',
+    });
+    const cpscUrls = fetchImpl.mock.calls
+      .map((call) => String(call[0]))
+      .filter((href) => href.includes('saferproducts.gov'));
+    expect(cpscUrls.length).toBeGreaterThanOrEqual(5);
+    expect(cpscUrls.some((href) => href.includes('ProductName=crib'))).toBe(true);
+  });
+
+  it('merges food and consumer on source=all and sorts newest first', async () => {
+    const fetchImpl = fetchByHost({
+      fda: sampleOpenFda({
+        results: [
+          {
+            recall_number: 'F-old',
+            recalling_firm: 'Acme Foods',
+            product_description: 'Milk',
+            reason_for_recall: 'Listeria',
+            classification: 'Class II',
+            status: 'Ongoing',
+            state: 'CA',
+            report_date: '20240110',
+            recall_initiation_date: '20240101',
+          },
+        ],
+      }),
+      cpsc: [sampleCpsc()],
+    });
+    const app = createApp({ fetchImpl });
+
+    const res = await request(app).get('/api/recalls').query({ source: 'all', q: 'crib' });
+    expect(res.status).toBe(200);
+    expect(res.body.source).toBe('all');
+    expect(res.body.results.map((r) => r.id)).toEqual(['cpsc-26669', 'F-old']);
+    expect(res.body.results.map((r) => r.source)).toEqual(['consumer', 'food']);
+  });
+
+  it('paginates consumer results in memory after the full CPSC merge', async () => {
+    const rows = Array.from({ length: 8 }, (_, index) =>
+      sampleCpsc({
+        RecallID: 100 + index,
+        RecallNumber: `N${index}`,
+        RecallDate: `2026-01-${String(index + 1).padStart(2, '0')}T00:00:00`,
+        LastPublishDate: `2026-01-${String(index + 1).padStart(2, '0')}T00:00:00`,
+        Title: `Item ${index}`,
+        Products: [{ Name: `Crib ${index}` }],
+      }),
+    );
+    const fetchImpl = fetchByHost({ cpsc: rows });
+    const app = createApp({ fetchImpl });
+
+    const res = await request(app).get('/api/recalls').query({
+      source: 'consumer',
+      q: 'crib',
+      skip: 2,
+      limit: 3,
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.total).toBe(8);
+    expect(res.body.results).toHaveLength(3);
+    expect(res.body.results.map((r) => r.id)).toEqual(['cpsc-N5', 'cpsc-N4', 'cpsc-N3']);
+  });
+
+  it('treats food 404 as empty on source=all when CPSC still returns rows', async () => {
+    const fetchImpl = fetchByHost({
+      fda: () => jsonResponse(404, { error: { code: 'NOT_FOUND' } }),
+      cpsc: [sampleCpsc()],
+    });
+    const app = createApp({ fetchImpl });
+
+    const res = await request(app).get('/api/recalls').query({ source: 'all', q: 'crib' });
+    expect(res.status).toBe(200);
+    expect(res.body.source).toBe('all');
+    expect(res.body.results).toHaveLength(1);
+    expect(res.body.results[0].id).toBe('cpsc-26669');
+  });
+
+  it('returns 502 when both branches hard-fail on source=all', async () => {
+    const fetchImpl = fetchByHost({
+      fda: () => jsonResponse(500, { error: 'boom' }),
+      cpsc: () => jsonResponse(500, { error: 'boom' }),
+    });
+    const app = createApp({ fetchImpl });
+
+    const res = await request(app).get('/api/recalls').query({ source: 'all', q: 'crib' });
+    expect(res.status).toBe(502);
   });
 });
