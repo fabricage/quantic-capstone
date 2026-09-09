@@ -1,21 +1,18 @@
 /**
  * App.jsx
- * Purpose: Browse-first home — paged latest recalls, with search, filters,
- * personas, detail, pagination, bookmarks, and demoted company chips.
+ * Purpose: Browse-first home — company chips on top, then the paged latest
+ * list with search, filters, detail, pagination, and bookmarks.
  */
 import { useEffect, useRef, useState } from 'react';
-import { fetchPersonas, fetchSuggestedSearches, rankRecallsForPersona, searchRecalls } from './api.js';
+import { fetchSuggestedSearches, searchRecalls } from './api.js';
 import FilterBar from './components/FilterBar.jsx';
-import HighRiskRecalls from './components/HighRiskRecalls.jsx';
 import Pagination from './components/Pagination.jsx';
-import PersonaCards from './components/PersonaCards.jsx';
 import RecentSearchChips from './components/RecentSearchChips.jsx';
 import RecallDetail from './components/RecallDetail.jsx';
 import RecallList from './components/RecallList.jsx';
 import SavedRecalls from './components/SavedRecalls.jsx';
 import SearchBar from './components/SearchBar.jsx';
 import SourceToggle from './components/SourceToggle.jsx';
-import StatusMessage from './components/StatusMessage.jsx';
 import SuggestedSearchChips from './components/SuggestedSearchChips.jsx';
 import { normalizeSearchQuery, useRecentSearches } from './hooks/useRecentSearches.js';
 import { useSavedRecalls } from './hooks/useSavedRecalls.js';
@@ -27,8 +24,6 @@ import {
   pageToSkip,
   resultRange,
 } from './lib/pagination.js';
-import { applyRanking } from './lib/rankResults.js';
-import { interleaveBySource, rankByPersonaBio } from './lib/personaMatch.js';
 import { scrollToResultsTop } from './lib/scroll.js';
 import { DEFAULT_LOOKBACK_WINDOW, LOOKBACK_WINDOWS } from './lib/suggestedChips.js';
 
@@ -57,15 +52,6 @@ export default function App() {
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [loading, setLoading] = useState(true);
   const [searchFailed, setSearchFailed] = useState(false);
-  const [personas, setPersonas] = useState([]);
-  const [personasFailed, setPersonasFailed] = useState(false);
-  const [personaId, setPersonaId] = useState('');
-  // Keyword order for the current page. Ranking reorders `results` but we
-  // keep this copy so deselect / fallback can restore FDA order.
-  const [keywordResults, setKeywordResults] = useState([]);
-  const [whyById, setWhyById] = useState({});
-  const [personaRanking, setPersonaRanking] = useState(false);
-  const [personaFallback, setPersonaFallback] = useState(false);
   const [suggestedSearches, setSuggestedSearches] = useState({
     label: 'Companies with the most recalls',
     groups: [],
@@ -74,23 +60,9 @@ export default function App() {
   const [suggestedWindow, setSuggestedWindow] = useState(DEFAULT_LOOKBACK_WINDOW);
   const [suggestedReady, setSuggestedReady] = useState(false);
   const pendingScrollRef = useRef(false);
-  const rankGenerationRef = useRef(0);
   // Newest request wins. A slow "all" list must not overwrite a quick
   // "consumer" toggle that the user clicked afterwards.
   const requestRef = useRef(0);
-
-  useEffect(() => {
-    fetchPersonas()
-      .then((data) => {
-        setPersonas(Array.isArray(data.personas) ? data.personas : []);
-        setPersonasFailed(false);
-      })
-      .catch(() => {
-        // Personas are optional. Show a notice; do not crash home.
-        setPersonas([]);
-        setPersonasFailed(true);
-      });
-  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -130,86 +102,6 @@ export default function App() {
     pendingScrollRef.current = false;
     scrollToResultsTop();
   }, [loading, results, page]);
-
-  // Rank / curate when a persona is selected. AI ranking is preferred.
-  // If the key is missing, we still order by the persona bio and alternate
-  // FDA / CPSC so the profile is never a no-op.
-  useEffect(() => {
-    if (!personaId) {
-      rankGenerationRef.current += 1;
-      setResults(keywordResults);
-      setWhyById({});
-      setPersonaFallback(false);
-      setPersonaRanking(false);
-      return;
-    }
-
-    if (keywordResults.length === 0) {
-      setWhyById({});
-      setPersonaFallback(false);
-      setPersonaRanking(false);
-      return;
-    }
-
-    const generation = rankGenerationRef.current + 1;
-    rankGenerationRef.current = generation;
-    setPersonaRanking(true);
-    setPersonaFallback(false);
-    const persona = personas.find((item) => item.id === personaId);
-
-    rankRecallsForPersona({
-      personaId,
-      recalls: keywordResults,
-      query: {
-        q: activeQuery,
-        classification: filters.classification,
-        status: filters.status,
-        dateFrom: filters.dateFrom,
-        dateTo: filters.dateTo,
-        page,
-        location: filters.location,
-        source,
-      },
-    }).then((data) => {
-      if (generation !== rankGenerationRef.current) return;
-      setPersonaRanking(false);
-      const aiRanked =
-        !data?.fallback && Array.isArray(data?.ranked) ? data.ranked : null;
-      if (aiRanked) {
-        const applied = applyRanking(keywordResults, aiRanked);
-        setResults(interleaveBySource(applied.results));
-        setWhyById(applied.whyById);
-        setPersonaFallback(false);
-        return;
-      }
-      if (!persona) {
-        setPersonaFallback(true);
-        setResults(interleaveBySource(keywordResults));
-        setWhyById({});
-        return;
-      }
-      const applied = rankByPersonaBio(keywordResults, persona);
-      setResults(interleaveBySource(applied.results));
-      setWhyById(applied.whyById);
-      setPersonaFallback(false);
-    });
-
-    return () => {
-      rankGenerationRef.current += 1;
-    };
-  }, [
-    personaId,
-    personas,
-    keywordResults,
-    activeQuery,
-    filters.classification,
-    filters.status,
-    filters.dateFrom,
-    filters.dateTo,
-    filters.location,
-    page,
-    source,
-  ]);
 
   function filtersForRequest(nextFilters, nextSource = source) {
     if (nextSource === 'consumer') {
@@ -269,20 +161,13 @@ export default function App() {
       if (!isCurrent()) return false;
       setPage(clamped);
       setPageSize(size);
-      const nextResults = Array.isArray(data.results) ? data.results : [];
-      setKeywordResults(nextResults);
-      setResults(nextResults);
-      setWhyById({});
-      setPersonaFallback(false);
+      setResults(Array.isArray(data.results) ? data.results : []);
       setTotal(data.total ?? totalCount);
       return true;
     } catch {
       if (!isCurrent()) return false;
       setSearchFailed(true);
-      setKeywordResults([]);
       setResults([]);
-      setWhyById({});
-      setPersonaFallback(false);
       setTotal(0);
       return false;
     } finally {
@@ -318,7 +203,6 @@ export default function App() {
     setQuery('');
     setActiveQuery('');
     setFilters(EMPTY_FILTERS);
-    setPersonaId('');
     setPage(1);
     fetchResults('', EMPTY_FILTERS, 1, pageSize, source);
   }
@@ -332,32 +216,11 @@ export default function App() {
     fetchResults(activeQuery, nextFilters, 1, pageSize);
   }
 
-  // Class I is an FDA food classification. CPSC consumer recalls carry no
-  // class, so the shortcut always pins the source to food.
-  function handleClassIShortcut() {
-    const nextFilters = { ...filters, classification: 'Class I' };
-    setSource('food');
-    setFilters(nextFilters);
-    setFiltersOpen(true);
-    setPage(1);
-    fetchResults(activeQuery, nextFilters, 1, pageSize, 'food');
-  }
-
   function handlePageChange(nextPage) {
     const clamped = clampPage(nextPage, total, pageSize);
     setPage(clamped);
     pendingScrollRef.current = true;
     fetchResults(activeQuery, filters, clamped, pageSize);
-  }
-
-  function handlePersonaSelect(nextId) {
-    const id = typeof nextId === 'string' ? nextId : '';
-    setPersonaId(id);
-    if (!id || source === 'all') return;
-    // Persona bios span FDA food and CPSC products, so widen to both sources.
-    setSource('all');
-    setPage(1);
-    fetchResults(activeQuery, filters, 1, pageSize, 'all');
   }
 
   function handleSourceChange(nextSource) {
@@ -399,9 +262,7 @@ export default function App() {
   const savedIsCurrent = view === 'saved' || (view === 'detail' && returnView === 'saved');
 
   const filtersActive = hasActiveFilters(filtersForRequest(filters));
-  const narrowed = Boolean(activeQuery) || filtersActive || Boolean(personaId);
-  const resultsExist = !searchFailed && results.length > 0;
-  const showClassIStrip = !(source === 'food' && filters.classification === 'Class I');
+  const narrowed = Boolean(activeQuery) || filtersActive;
 
   return (
     <div className="app">
@@ -440,6 +301,20 @@ export default function App() {
         <SavedRecalls saved={saved} onSelect={handleSelect} onRemove={toggleSave} />
       ) : (
         <>
+          {/* Always visible, always first: the company chips are the fastest
+              way into the data, so they never scroll away or collapse. */}
+          <section className="company-spotlight" aria-labelledby="suggested-searches-label">
+            <SuggestedSearchChips
+              label={suggestedSearches.label}
+              groups={suggestedSearches.groups}
+              windows={suggestedSearches.windows || LOOKBACK_WINDOWS}
+              windowId={suggestedWindow}
+              ready={suggestedReady}
+              onWindowChange={setSuggestedWindow}
+              onSelect={handleSuggestedSearch}
+            />
+          </section>
+
           <SourceToggle source={source} onChange={handleSourceChange} />
 
           <section className="browse" aria-labelledby="browse-heading">
@@ -454,10 +329,6 @@ export default function App() {
               ) : null}
             </div>
             <p className="browse-lede">{sourceLede(source)}</p>
-
-            {showClassIStrip ? (
-              <HighRiskRecalls onSelect={handleSelect} onBrowse={handleClassIShortcut} />
-            ) : null}
 
             <div className="narrow-tools">
               <SearchBar query={query} onChange={setQuery} onSearch={handleSearch} />
@@ -481,28 +352,7 @@ export default function App() {
               </details>
             </div>
 
-            {resultsExist && personasFailed ? (
-              <StatusMessage>
-                We couldn’t load shopper profiles. Search still works as usual.
-              </StatusMessage>
-            ) : null}
-            {resultsExist && !personasFailed ? (
-              <PersonaCards
-                personas={personas}
-                selectedId={personaId}
-                onSelect={handlePersonaSelect}
-              />
-            ) : null}
-
             <div className="results-top-sentinel" data-results-top />
-            {personaRanking ? (
-              <StatusMessage>Finding recalls for your profile…</StatusMessage>
-            ) : null}
-            {personaFallback ? (
-              <StatusMessage tone="notice">
-                We couldn’t personalize this page. Showing keyword order.
-              </StatusMessage>
-            ) : null}
 
             <RecallList
               loading={loading}
@@ -520,7 +370,6 @@ export default function App() {
               onSelect={handleSelect}
               isSaved={isSaved}
               onToggleSave={toggleSave}
-              whyById={whyById}
             />
 
             {!loading && !searchFailed ? (
@@ -533,19 +382,6 @@ export default function App() {
               />
             ) : null}
           </section>
-
-          <details className="browse-companies">
-            <summary>Browse by company</summary>
-            <SuggestedSearchChips
-              label={suggestedSearches.label}
-              groups={suggestedSearches.groups}
-              windows={suggestedSearches.windows || LOOKBACK_WINDOWS}
-              windowId={suggestedWindow}
-              ready={suggestedReady}
-              onWindowChange={setSuggestedWindow}
-              onSelect={handleSuggestedSearch}
-            />
-          </details>
         </>
       )}
     </div>

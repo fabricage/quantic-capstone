@@ -27,9 +27,9 @@ Hostnames are **not** hardcoded in app logic. The static build uses `VITE_API_BA
 - Keyword search across FDA food enforcement and CPSC consumer-product recalls (Food / Consumer / All)
 - Filters: classification, status, date range, location (USA / China / Other)
 - Recall detail, pagination, saved bookmarks, recent-search chips
-- Suggested company chips (trending firms) that switch source
-- Home previews: latest FDA + CPSC, plus Class I high-risk
-- Optional shopper personas that reorder the current page (fallback keeps keyword order)
+- "Companies with the most recalls" chips at the top of home (monogram, count, 1 month – 2 year lookback) that switch source and search
+- Browse-first home: the newest FDA + CPSC recalls load as a paged list before anyone types
+- Persona ranking API (`/api/personas`, `/api/persona-rank`) kept server-side as an experiment; not shown in the UI
 - Predictable empty / error copy and a React error boundary (no blank screens, no raw upstream dumps)
 
 ## Stack

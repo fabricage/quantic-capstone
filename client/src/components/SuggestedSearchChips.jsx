@@ -1,7 +1,8 @@
 /**
  * SuggestedSearchChips.jsx
- * Purpose: Bigger FDA / CPSC company chips with a monogram + recall count.
- * A lookback row lets the user switch 1 month / 3 months / 1 year / etc.
+ * Purpose: FDA / CPSC company chips with a monogram + recall count. Sits at
+ * the top of home, always visible, so it doubles as a section with its own
+ * heading. A lookback row lets the user switch 1 month / 3 months / 1 year.
  * onSelect(phrase, source) so App can switch Food vs Consumer, then search.
  */
 import {
@@ -33,9 +34,9 @@ export default function SuggestedSearchChips({
   return (
     <div className="suggested-search-chips">
       {label ? (
-        <p id="suggested-searches-label" className="suggested-search-chips-label">
+        <h2 id="suggested-searches-label" className="suggested-search-chips-label">
           {label}
-        </p>
+        </h2>
       ) : null}
       {showWindows ? (
         <div

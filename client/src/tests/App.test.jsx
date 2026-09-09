@@ -1,7 +1,7 @@
 /**
  * App.test.jsx
- * Purpose: Brand, browse-first home list, BFF search, filters, detail,
- * pagination, chips, and persona ranking.
+ * Purpose: Brand, company chips on top, browse-first home list, BFF search,
+ * filters, detail, and pagination.
  */
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -200,9 +200,6 @@ describe('App', () => {
     const user = userEvent.setup();
     const fetchMock = vi.fn().mockImplementation((url) => {
       const href = String(url);
-      if (href.includes('/api/personas')) {
-        return Promise.resolve({ ok: true, json: async () => ({ personas: [] }) });
-      }
       const isFormula = href.includes('q=formula');
       return Promise.resolve({
         ok: true,
@@ -253,74 +250,6 @@ describe('App', () => {
     expect(urls.filter((url) => url.includes('q=formula')).length).toBeGreaterThanOrEqual(2);
   });
 
-  const parentPersona = {
-    id: 'parent-young-kids',
-    label: 'Parent with young kids',
-    description: 'Formula, lunchbox snacks, and foods kids eat often.',
-    keywords: ['formula', 'snack', 'kids', 'yogurt', 'crib'],
-  };
-
-  const milkResults = [
-    {
-      id: 'F-milk-1',
-      firm: 'Dairy Co',
-      product: 'Whole milk',
-      reason: 'Undeclared allergen',
-      classification: 'Class II',
-      recallDate: '20240110',
-      source: 'food',
-      imageUrl: '',
-      imageAlt: '',
-    },
-    {
-      id: 'F-milk-2',
-      firm: 'Kids Snacks Inc',
-      product: 'Yogurt pouches',
-      reason: 'Possible contamination',
-      classification: 'Class I',
-      recallDate: '20240112',
-      source: 'food',
-      imageUrl: '',
-      imageAlt: '',
-    },
-  ];
-
-  const mixedPersonaResults = [
-    {
-      id: 'F-coffee',
-      firm: 'Bean Co',
-      product: 'Espresso pods',
-      reason: 'Mold',
-      classification: 'Class III',
-      recallDate: '20240108',
-      source: 'food',
-      imageUrl: '',
-      imageAlt: '',
-    },
-    {
-      id: 'F-yogurt',
-      firm: 'Kids Snacks Inc',
-      product: 'Yogurt pouches',
-      reason: 'Possible contamination',
-      classification: 'Class I',
-      recallDate: '20240112',
-      source: 'food',
-      imageUrl: '',
-      imageAlt: '',
-    },
-    {
-      id: 'cpsc-crib',
-      firm: 'Voomf',
-      product: 'Crib mattress',
-      reason: 'Entrapment',
-      classification: 'Consumer Product',
-      recallDate: '20240111',
-      source: 'consumer',
-      imageUrl: '',
-      imageAlt: '',
-    },
-  ];
-
   const latestDairy = {
     id: 'F-recent',
     firm: 'Latest Dairy',
@@ -345,7 +274,7 @@ describe('App', () => {
     imageAlt: '',
   };
 
-  const highRisk = {
+  const classOne = {
     id: 'F-class-i',
     firm: 'High Risk Co',
     product: 'Infant formula',
@@ -359,12 +288,9 @@ describe('App', () => {
 
   // Home mock: FDA + CPSC rows for `all`, CPSC only for `consumer`, and a
   // Class I row whenever the classification filter is present.
-  function browseFetch({ personas = [parentPersona] } = {}) {
+  function browseFetch() {
     return vi.fn().mockImplementation((url) => {
       const href = String(url);
-      if (href.includes('/api/personas')) {
-        return Promise.resolve({ ok: true, json: async () => ({ personas }) });
-      }
       if (href.includes('/api/trending-searches')) {
         return Promise.resolve({
           ok: true,
@@ -382,13 +308,10 @@ describe('App', () => {
           }),
         });
       }
-      if (href.includes('/api/persona-rank')) {
-        return Promise.resolve({ ok: true, json: async () => ({ fallback: true }) });
-      }
       if (href.includes('classification=Class')) {
         return Promise.resolve({
           ok: true,
-          json: async () => ({ total: 1, source: 'food', results: [highRisk] }),
+          json: async () => ({ total: 1, source: 'food', results: [classOne] }),
         });
       }
       if (href.includes('source=consumer')) {
@@ -430,19 +353,19 @@ describe('App', () => {
     expect(screen.getByLabelText(/per page/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /next/i })).toBeInTheDocument();
 
-    const listUrls = recallUrls(fetchMock).filter((href) => !href.includes('classification='));
+    const listUrls = recallUrls(fetchMock);
     expect(listUrls.length).toBeGreaterThan(0);
     expect(listUrls.every((href) => href.includes('source=all'))).toBe(true);
     expect(listUrls.some((href) => /[?&]q=/.test(href))).toBe(false);
-    expect(recallUrls(fetchMock).some((href) => href.includes('api.fda.gov'))).toBe(false);
+    expect(listUrls.some((href) => href.includes('api.fda.gov'))).toBe(false);
 
-    // The Class I strip is FDA-only and separate from the paged list.
-    expect(await screen.findByText('Infant formula · High Risk Co')).toBeInTheDocument();
-    expect(screen.getByText(/fda food only/i)).toBeInTheDocument();
-    expect(screen.getByText(/severity,\s*not popularity/i)).toBeInTheDocument();
+    // No Class I strip and no persona cards: the list is the only module.
+    expect(screen.queryByText(/class i high-risk/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: /who is this for/i })).not.toBeInTheDocument();
+    expect(recallUrls(fetchMock).some((href) => href.includes('classification='))).toBe(false);
   });
 
-  it('places persona cards above the list and company chips after it, outside the search form', async () => {
+  it('keeps the company section first — above the source toggle, search box, and list', async () => {
     const fetchMock = browseFetch();
     vi.stubGlobal('fetch', fetchMock);
 
@@ -450,216 +373,58 @@ describe('App', () => {
     const firstCard = await screen.findByRole('button', {
       name: /view details for cheddar cheese/i,
     });
+    const chipsHeading = await screen.findByRole('heading', {
+      name: /companies with the most recalls/i,
+    });
+    const chip = await screen.findByRole('button', { name: /acme foods inc, 40 recalls/i });
+    const follows = (a, b) => Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
 
-    const personaHeading = await screen.findByRole('heading', { name: /who is this for/i });
-    expect(screen.getByText(/optional: pick a preset household/i)).toBeInTheDocument();
-    expect(
-      personaHeading.compareDocumentPosition(firstCard) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
+    // Not tucked inside a collapsed panel or the search form.
+    expect(chipsHeading.closest('details')).toBeNull();
+    expect(chipsHeading.closest('form')).toBeNull();
+    expect(chip).toBeVisible();
 
-    const chipsLabel = await screen.findByText(/companies with the most recalls/i);
-    expect(chipsLabel.closest('form')).toBeNull();
-    expect(
-      firstCard.compareDocumentPosition(chipsLabel) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
+    const sourceToggle = screen.getByRole('button', { name: 'All' });
+    const searchInput = screen.getByRole('searchbox');
+    expect(follows(chipsHeading, sourceToggle)).toBe(true);
+    expect(follows(sourceToggle, searchInput)).toBe(true);
+    expect(follows(searchInput, firstCard)).toBe(true);
 
     const searchLabel = screen.getByText(/^search recalls$/i);
-    const searchInput = screen.getByRole('searchbox');
     expect(searchLabel.nextElementSibling).toContainElement(searchInput);
-    expect(
-      searchInput.compareDocumentPosition(chipsLabel) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
   });
 
-  it('Class I shortcut pins Food + Class I, and Clear search restores the latest list', async () => {
+  it('a filter turns the list into Matching recalls, and Clear search restores the latest list', async () => {
     const user = userEvent.setup();
     const fetchMock = browseFetch();
     vi.stubGlobal('fetch', fetchMock);
 
     render(<App />);
     expect(await screen.findByText('Latest Dairy')).toBeInTheDocument();
+    const filterSummary = screen.getByLabelText(/classification/i).closest('details').querySelector('summary');
+    expect(filterSummary).toHaveTextContent('Filters');
 
-    await user.click(screen.getByRole('button', { name: /show all class i/i }));
+    await user.selectOptions(screen.getByLabelText(/classification/i), 'Class I');
     expect(await screen.findByText('High Risk Co')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Food' })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByLabelText(/classification/i)).toHaveValue('Class I');
     expect(screen.getByRole('heading', { name: /matching recalls/i })).toBeInTheDocument();
-    // Strip hides itself once the list is already the Class I list.
-    expect(screen.queryByRole('button', { name: /show all class i/i })).not.toBeInTheDocument();
-    const classIListUrls = recallUrls(fetchMock).filter(
-      (href) => href.includes('classification=Class') && href.includes('limit=20'),
-    );
-    expect(classIListUrls.length).toBeGreaterThan(0);
-    expect(classIListUrls.every((href) => href.includes('source=food'))).toBe(true);
+    expect(filterSummary).toHaveTextContent('Filters (active)');
+    const classIUrls = recallUrls(fetchMock).filter((href) => href.includes('classification=Class'));
+    expect(classIUrls.length).toBeGreaterThan(0);
+    expect(classIUrls.every((href) => href.includes('limit=20'))).toBe(true);
 
     await user.click(screen.getByRole('button', { name: /clear search/i }));
     expect(await screen.findByText('Latest Dairy')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /latest recalls/i })).toBeInTheDocument();
     expect(screen.getByLabelText(/classification/i)).toHaveValue('');
     expect(screen.queryByRole('button', { name: /clear search/i })).not.toBeInTheDocument();
-  });
-
-  it('ranks the current page and shows why-lines when a persona is selected', async () => {
-    const user = userEvent.setup();
-    const fetchMock = vi.fn().mockImplementation((url) => {
-      const href = String(url);
-      if (href.includes('/api/personas')) {
-        return Promise.resolve({ ok: true, json: async () => ({ personas: [parentPersona] }) });
-      }
-      if (href.includes('/api/persona-rank')) {
-        return Promise.resolve({
-          ok: true,
-          json: async () => ({
-            fallback: false,
-            ranked: [
-              { id: 'F-milk-2', relevance: 5, why: 'Kids often eat yogurt pouches.' },
-              { id: 'F-milk-1', relevance: 2, why: 'Less common in a lunchbox.' },
-            ],
-          }),
-        });
-      }
-      return Promise.resolve({
-        ok: true,
-        json: async () => ({ total: 2, source: 'food', results: milkResults }),
-      });
-    });
-    vi.stubGlobal('fetch', fetchMock);
-
-    render(<App />);
-    await user.type(screen.getByRole('searchbox'), 'milk');
-    await user.click(
-      within(screen.getByRole('searchbox').closest('form')).getByRole('button', {
-        name: /search/i,
-      }),
-    );
-    expect(await screen.findByText('Dairy Co')).toBeInTheDocument();
-    const cardTitles = () =>
-      screen
-        .getAllByRole('button', { name: /view details for/i })
-        .map((el) => el.getAttribute('aria-label'));
-    expect(cardTitles()[0]).toMatch(/whole milk/i);
-
-    await user.click(screen.getByRole('button', { name: /parent with young kids/i }));
-
-    expect(await screen.findByText('Kids often eat yogurt pouches.')).toBeInTheDocument();
-    expect(screen.getByText('Less common in a lunchbox.')).toBeInTheDocument();
-    expect(cardTitles()[0]).toMatch(/yogurt pouches/i);
-
-    const rankCall = fetchMock.mock.calls.find((call) => String(call[0]).includes('/api/persona-rank'));
-    expect(rankCall).toBeTruthy();
-    expect(rankCall[1].method).toBe('POST');
-    const body = JSON.parse(rankCall[1].body);
-    expect(body.personaId).toBe('parent-young-kids');
-    expect(body.recalls.map((r) => r.id)).toEqual(['F-milk-1', 'F-milk-2']);
-    expect(body.query).toMatchObject({
-      q: 'milk',
-      classification: '',
-      status: '',
-      dateFrom: '',
-      dateTo: '',
-      page: 1,
-      location: '',
-      source: 'all',
-    });
-
-    await user.click(screen.getByRole('button', { name: /parent with young kids/i }));
-    await waitFor(() => {
-      expect(screen.queryByText('Kids often eat yogurt pouches.')).not.toBeInTheDocument();
-    });
-    expect(cardTitles()[0]).toMatch(/whole milk/i);
-  });
-
-  it('uses the persona bio and alternates FDA/CPSC when ranking is unavailable', async () => {
-    const user = userEvent.setup();
-    const fetchMock = vi.fn().mockImplementation((url) => {
-      const href = String(url);
-      if (href.includes('/api/personas')) {
-        return Promise.resolve({ ok: true, json: async () => ({ personas: [parentPersona] }) });
-      }
-      if (href.includes('/api/persona-rank')) {
-        return Promise.resolve({ ok: true, json: async () => ({ fallback: true }) });
-      }
-      if (href.includes('source=all')) {
-        return Promise.resolve({
-          ok: true,
-          json: async () => ({ total: 3, source: 'all', results: mixedPersonaResults }),
-        });
-      }
-      return Promise.resolve({
-        ok: true,
-        json: async () => ({ total: 2, source: 'food', results: milkResults }),
-      });
-    });
-    vi.stubGlobal('fetch', fetchMock);
-
-    render(<App />);
-    // Home defaults to All; narrow to Food so the persona has to widen again.
-    await user.click(screen.getByRole('button', { name: 'Food' }));
-    await user.type(screen.getByRole('searchbox'), 'milk');
-    await user.click(
-      within(screen.getByRole('searchbox').closest('form')).getByRole('button', {
-        name: /search/i,
-      }),
-    );
-    expect(await screen.findByText('Dairy Co')).toBeInTheDocument();
-
-    await user.click(screen.getByRole('button', { name: /parent with young kids/i }));
-
-    expect(await screen.findAllByText(/matches this profile/i)).not.toHaveLength(0);
-    expect(screen.queryByText(/couldn’t personalize this page/i)).not.toBeInTheDocument();
-    const titles = screen
-      .getAllByRole('button', { name: /view details for/i })
-      .map((el) => el.getAttribute('aria-label'));
-    expect(titles[0]).toMatch(/yogurt pouches/i);
-    expect(titles[1]).toMatch(/crib mattress/i);
-    expect(screen.getByRole('button', { name: 'All' })).toHaveAttribute('aria-pressed', 'true');
-  });
-
-  it('loads a mixed FDA/CPSC feed when a persona is chosen before searching', async () => {
-    const user = userEvent.setup();
-    const fetchMock = vi.fn().mockImplementation((url) => {
-      const href = String(url);
-      if (href.includes('/api/personas')) {
-        return Promise.resolve({ ok: true, json: async () => ({ personas: [parentPersona] }) });
-      }
-      if (href.includes('/api/persona-rank')) {
-        return Promise.resolve({ ok: true, json: async () => ({ fallback: true }) });
-      }
-      if (href.includes('source=all')) {
-        return Promise.resolve({
-          ok: true,
-          json: async () => ({ total: 3, source: 'all', results: mixedPersonaResults }),
-        });
-      }
-      return Promise.resolve({
-        ok: true,
-        json: async () => ({ total: 0, source: 'food', results: [] }),
-      });
-    });
-    vi.stubGlobal('fetch', fetchMock);
-
-    render(<App />);
-    await user.click(
-      await screen.findByRole('button', { name: /parent with young kids/i }),
-    );
-
-    expect(await screen.findByText('Kids Snacks Inc')).toBeInTheDocument();
-    expect(screen.getByText('Voomf')).toBeInTheDocument();
-    expect(screen.queryByText(/couldn’t personalize this page/i)).not.toBeInTheDocument();
-    const titles = screen
-      .getAllByRole('button', { name: /view details for/i })
-      .map((el) => el.getAttribute('aria-label'));
-    expect(titles[0]).toMatch(/yogurt pouches/i);
-    expect(titles[1]).toMatch(/crib mattress/i);
+    // The company section stays put through the whole round trip.
+    expect(screen.getByRole('heading', { name: /companies with the most recalls/i })).toBeInTheDocument();
   });
 
   it('toggles Consumer and searches crib without FDA classification or status', async () => {
     const user = userEvent.setup();
     const fetchMock = vi.fn().mockImplementation((url) => {
       const href = String(url);
-      if (href.includes('/api/personas')) {
-        return Promise.resolve({ ok: true, json: async () => ({ personas: [] }) });
-      }
       return Promise.resolve({
         ok: true,
         json: async () => ({
@@ -732,9 +497,6 @@ describe('App', () => {
           }),
         });
       }
-      if (href.includes('/api/personas')) {
-        return Promise.resolve({ ok: true, json: async () => ({ personas: [] }) });
-      }
       return Promise.resolve({
         ok: true,
         json: async () => ({
@@ -763,7 +525,7 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: 'Truststone Group' })).toBeInTheDocument();
     const chipsLabel = screen.getByText(/companies with the most recalls/i);
     expect(chipsLabel.closest('form')).toBeNull();
-    expect(chipsLabel.closest('details')).toHaveTextContent(/browse by company/i);
+    expect(chipsLabel.closest('details')).toBeNull();
 
     await user.click(screen.getByRole('button', { name: 'FreshPoint' }));
     expect(await screen.findByText('Chicken salad')).toBeInTheDocument();
@@ -775,6 +537,9 @@ describe('App', () => {
     expect(foodUrls.every((href) => href.includes('source=food'))).toBe(true);
     expect(foodUrls.some((href) => href.includes('api.fda.gov'))).toBe(false);
     expect(screen.getAllByRole('button', { name: 'FreshPoint' }).length).toBeGreaterThan(0);
+
+    // Searching must not hide the company section.
+    expect(screen.getByText(/companies with the most recalls/i)).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Truststone Group' }));
     expect(await screen.findByText('Power bank')).toBeInTheDocument();
@@ -832,9 +597,6 @@ describe('App', () => {
           }),
         });
       }
-      if (href.includes('/api/personas')) {
-        return Promise.resolve({ ok: true, json: async () => ({ personas: [] }) });
-      }
       return Promise.resolve({
         ok: true,
         json: async () => ({ total: 0, source: 'food', results: [] }),
@@ -859,9 +621,6 @@ describe('App', () => {
     const user = userEvent.setup();
     const fetchMock = vi.fn().mockImplementation((url) => {
       const href = String(url);
-      if (href.includes('/api/personas')) {
-        return Promise.resolve({ ok: true, json: async () => ({ personas: [] }) });
-      }
       if (href.includes('q=')) {
         return Promise.resolve({
           ok: false,
@@ -893,40 +652,24 @@ describe('App', () => {
     expect(screen.queryByText(/Request failed/i)).not.toBeInTheDocument();
   });
 
-  it('keeps home usable and shows a notice when personas fail to load', async () => {
+  it('keeps home usable when the company chips endpoint is down', async () => {
     const fetchMock = vi.fn().mockImplementation((url) => {
       const href = String(url);
-      if (href.includes('/api/personas')) {
+      if (href.includes('/api/trending-searches')) {
         return Promise.reject(new Error('Request failed (500)'));
       }
       return Promise.resolve({
         ok: true,
-        json: async () => ({
-          total: 1,
-          source: 'food',
-          results: [
-            {
-              id: 'F-recent',
-              firm: 'Latest Dairy',
-              product: 'Cheddar cheese',
-              reason: 'Listeria',
-              classification: 'Class II',
-              recallDate: '20240115',
-              source: 'food',
-              imageUrl: '',
-              imageAlt: '',
-            },
-          ],
-        }),
+        json: async () => ({ total: 1, source: 'all', results: [latestDairy] }),
       });
     });
     vi.stubGlobal('fetch', fetchMock);
 
     render(<App />);
-    expect(await screen.findByText(/couldn’t load shopper profiles/i)).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: /the recall ledger/i })).toBeInTheDocument();
+    expect(await screen.findByText('Latest Dairy')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /companies with the most recalls/i })).toBeInTheDocument();
+    expect(await screen.findByText(/no companies found for this period/i)).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /latest recalls/i })).toBeInTheDocument();
-    expect(screen.queryByRole('heading', { name: /who is this for/i })).not.toBeInTheDocument();
   });
 
   it('reloads the list for the chosen source and resets to page 1 without a keyword', async () => {
@@ -964,6 +707,5 @@ describe('App', () => {
     render(<App />);
     expect(await screen.findByText(/no recalls to show right now/i)).toBeInTheDocument();
     expect(screen.queryByText(/enter a keyword/i)).not.toBeInTheDocument();
-    expect(screen.queryByRole('heading', { name: /who is this for/i })).not.toBeInTheDocument();
   });
 });
