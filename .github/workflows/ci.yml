@@ -40,3 +40,6 @@ jobs:
       - name: Run client tests
         working-directory: client
         run: npm test
+
+      - name: Run ranking evals (mock)
+        run: node evals/run-evals.js --mock
