@@ -27,7 +27,8 @@ services:
       # Paste the key in the Render dashboard for this service only (never commit it)
       - key: ANTHROPIC_API_KEY
         sync: false
-      # Set to your Static Site origin after first deploy (no trailing slash)
+      # Set in dashboard after first deploy (no trailing slash). After custom-domain
+      # cutover: comma-separated www + apex. Do not put hostnames in this file.
       - key: CLIENT_ORIGIN
         sync: false
 
@@ -47,6 +48,7 @@ services:
     envVars:
       - key: NODE_VERSION
         value: "20"
-      # Set in dashboard to https://YOUR-API.onrender.com (no trailing slash), then Clear build cache & deploy
+      # Dashboard: Render API origin (no trailing slash), then Clear build cache & deploy.
+      # Stays on the API *.onrender.com URL after custom-domain cutover — not the public site host.
       - key: VITE_API_BASE_URL
         sync: false

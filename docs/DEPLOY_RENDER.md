@@ -1,6 +1,6 @@
 # Deploy on Render (free tier)
 
-Human runbook for the Card 3 Blueprint deploy. Dashboard clicks are marked **(me)**.
+Human runbook for the Blueprint deploy and custom-domain cutover. Dashboard and registrar clicks are marked **(me)**.
 
 This app is two Render services from one repo, described in [`render.yaml`](../render.yaml):
 
@@ -9,15 +9,22 @@ This app is two Render services from one repo, described in [`render.yaml`](../r
 | `recall-ledger-api` | Web Service | Express BFF (`/health`, `/api/*`) |
 | `recall-ledger-web` | Static Site | Vite production build (`client/dist`) |
 
-No custom domain in this card. Use the `*.onrender.com` URLs Render gives you.
+**Live URLs (after cutover):**
 
-The **Anthropic API key** (when you add one later) goes on the **API service only**. Never put it on the static site. Never commit it.
+| What | URL |
+|---|---|
+| Public site | https://www.getproductrecall.com/ |
+| API (stays on Render) | https://recall-ledger-api.onrender.com |
+
+The **Anthropic API key** goes on the **API service only**. Never put it on the static site. Never commit it. Never put a public hostname in `render.yaml` — `CLIENT_ORIGIN` and `VITE_API_BASE_URL` stay `sync: false`.
 
 ## Why two env vars after first boot
 
 Vite bakes `VITE_*` into the JavaScript **at build time**. The browser then calls that absolute API origin. The API must also allow that browser origin (CORS) via `CLIENT_ORIGIN`.
 
 Locally you leave both empty: Vite proxies `/api`, and CORS stays open.
+
+`VITE_API_BASE_URL` is the **API** origin (`https://recall-ledger-api.onrender.com`), not the public website. Moving the static site to a custom domain does **not** change that value.
 
 ## (me) Blueprint apply
 
@@ -28,20 +35,45 @@ Locally you leave both empty: Vite proxies `/api`, and CORS stays open.
 5. **Clear build cache & deploy** the static site (required so Vite rebuilds with the new env var).
 6. Copy the static site origin (no trailing slash), e.g. `https://recall-ledger-web.onrender.com`.
 7. On **recall-ledger-api**, set `CLIENT_ORIGIN` to that static origin. Save / redeploy the API if Render does not pick it up automatically.
-8. Optional later: paste `ANTHROPIC_API_KEY` on the **API** service only (`sync: false` in the Blueprint means you type it in the dashboard).
+8. Optional: paste `ANTHROPIC_API_KEY` on the **API** service only (`sync: false` in the Blueprint means you type it in the dashboard).
 
 Do not set a `plan` on the static site. Render rejects it. The Blueprint already omits that field.
+
+## Custom domain cutover
+
+The public site moves to the registrar domain. The API **stays** on Render (`https://recall-ledger-api.onrender.com`). App code must not hardcode either hostname — origins come from env.
+
+### After DNS
+
+1. **(me)** In Render’s custom-domain UI, add **www** and **apex** (`www.getproductrecall.com` and `getproductrecall.com`) and copy the DNS records Render shows.
+2. **(me)** At the registrar, create those records. Wait until Render shows TLS as ready (certificates can lag DNS).
+3. **Static site `VITE_API_BASE_URL` still points at the Render API origin** (`https://recall-ledger-api.onrender.com`, no trailing slash). Do **not** point it at the custom domain. If you change this value, **Clear build cache & deploy** so Vite bakes the new string in.
+4. On **recall-ledger-api**, set `CLIENT_ORIGIN` to the **custom** origin(s), comma-separated, no trailing slash:
+
+   ```
+   CLIENT_ORIGIN=https://www.getproductrecall.com,https://getproductrecall.com
+   ```
+
+   Save / redeploy the API so CORS picks up the list.
+
+5. Open https://www.getproductrecall.com/, search `formula`, toggle **Consumer**, pick a persona. DevTools should show `/api/*` calls to `recall-ledger-api.onrender.com` and **no CORS errors**.
+
+### Lesson
+
+CORS errors after the move almost always mean `CLIENT_ORIGIN` still lists `*.onrender.com` (the old static-site origin) instead of `https://www.getproductrecall.com` and `https://getproductrecall.com`. Browsers send `Origin: https://www.getproductrecall.com`. If that string is not on the allow-list, the API omits `Access-Control-Allow-Origin` and the UI looks “broken” even though `/health` still works from curl (curl sends no `Origin`).
 
 ## (me) Smoke checks
 
 Free-tier Web Services spin down after idle. The **first** request after idle can take **30–60 seconds**. Wait; do not assume a timeout means a bad deploy.
 
 ```bash
-curl "https://YOUR-API.onrender.com/health"
-curl "https://YOUR-API.onrender.com/api/recalls?q=formula&limit=5"
+curl "https://recall-ledger-api.onrender.com/health"
+curl "https://recall-ledger-api.onrender.com/api/recalls?q=formula&limit=5"
+curl "https://recall-ledger-api.onrender.com/api/recalls?q=crib&source=consumer&limit=5"
+curl "https://recall-ledger-api.onrender.com/api/personas"
 ```
 
-Then open the static site and search `formula`. DevTools Network should show calls to your API origin `/api/recalls`, never `api.fda.gov`.
+Then open the public site and search `formula`. DevTools Network should show calls to the API origin `/api/recalls`, never `api.fda.gov`.
 
 ## The two usual static-site failures
 

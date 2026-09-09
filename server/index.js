@@ -13,6 +13,11 @@ import { createTrendingRouter } from './routes/trending.js';
 
 /**
  * Parse CLIENT_ORIGIN into a list of allowed browser origins.
+ * Comma-separated (www + apex), each entry trimmed, trailing slashes stripped.
+ *
+ * Production example after DNS cutover:
+ *   CLIENT_ORIGIN=https://www.getproductrecall.com,https://getproductrecall.com
+ *
  * Empty / unset → null (open CORS for local Vite).
  */
 export function parseClientOrigins(raw) {
