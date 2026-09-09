@@ -256,6 +256,7 @@ describe('App', () => {
     id: 'parent-young-kids',
     label: 'Parent with young kids',
     description: 'Formula, lunchbox snacks, and foods kids eat often.',
+    keywords: ['formula', 'snack', 'kids', 'yogurt', 'crib'],
   };
 
   const milkResults = [
@@ -278,6 +279,42 @@ describe('App', () => {
       classification: 'Class I',
       recallDate: '20240112',
       source: 'food',
+      imageUrl: '',
+      imageAlt: '',
+    },
+  ];
+
+  const mixedPersonaResults = [
+    {
+      id: 'F-coffee',
+      firm: 'Bean Co',
+      product: 'Espresso pods',
+      reason: 'Mold',
+      classification: 'Class III',
+      recallDate: '20240108',
+      source: 'food',
+      imageUrl: '',
+      imageAlt: '',
+    },
+    {
+      id: 'F-yogurt',
+      firm: 'Kids Snacks Inc',
+      product: 'Yogurt pouches',
+      reason: 'Possible contamination',
+      classification: 'Class I',
+      recallDate: '20240112',
+      source: 'food',
+      imageUrl: '',
+      imageAlt: '',
+    },
+    {
+      id: 'cpsc-crib',
+      firm: 'Voomf',
+      product: 'Crib mattress',
+      reason: 'Entrapment',
+      classification: 'Consumer Product',
+      recallDate: '20240111',
+      source: 'consumer',
       imageUrl: '',
       imageAlt: '',
     },
@@ -387,7 +424,7 @@ describe('App', () => {
       dateTo: '',
       page: 1,
       location: '',
-      source: 'food',
+      source: 'all',
     });
 
     await user.click(screen.getByRole('button', { name: /parent with young kids/i }));
@@ -397,7 +434,7 @@ describe('App', () => {
     expect(cardTitles()[0]).toMatch(/whole milk/i);
   });
 
-  it('keeps keyword order and shows a fallback notice when ranking fails', async () => {
+  it('uses the persona bio and alternates FDA/CPSC when ranking is unavailable', async () => {
     const user = userEvent.setup();
     const fetchMock = vi.fn().mockImplementation((url) => {
       const href = String(url);
@@ -406,6 +443,12 @@ describe('App', () => {
       }
       if (href.includes('/api/persona-rank')) {
         return Promise.resolve({ ok: true, json: async () => ({ fallback: true }) });
+      }
+      if (href.includes('source=all')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ total: 3, source: 'all', results: mixedPersonaResults }),
+        });
       }
       return Promise.resolve({
         ok: true,
@@ -425,12 +468,52 @@ describe('App', () => {
 
     await user.click(screen.getByRole('button', { name: /parent with young kids/i }));
 
-    expect(await screen.findByText(/couldn’t personalize this page/i)).toBeInTheDocument();
+    expect(await screen.findAllByText(/matches this profile/i)).not.toHaveLength(0);
+    expect(screen.queryByText(/couldn’t personalize this page/i)).not.toBeInTheDocument();
     const titles = screen
       .getAllByRole('button', { name: /view details for/i })
       .map((el) => el.getAttribute('aria-label'));
-    expect(titles[0]).toMatch(/whole milk/i);
-    expect(screen.queryByText(/kids often eat/i)).not.toBeInTheDocument();
+    expect(titles[0]).toMatch(/yogurt pouches/i);
+    expect(titles[1]).toMatch(/crib mattress/i);
+    expect(screen.getByRole('button', { name: 'All' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('loads a mixed FDA/CPSC feed when a persona is chosen before searching', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn().mockImplementation((url) => {
+      const href = String(url);
+      if (href.includes('/api/personas')) {
+        return Promise.resolve({ ok: true, json: async () => ({ personas: [parentPersona] }) });
+      }
+      if (href.includes('/api/persona-rank')) {
+        return Promise.resolve({ ok: true, json: async () => ({ fallback: true }) });
+      }
+      if (href.includes('source=all')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ total: 3, source: 'all', results: mixedPersonaResults }),
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ total: 0, source: 'food', results: [] }),
+      });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<App />);
+    await user.click(
+      await screen.findByRole('button', { name: /parent with young kids/i }),
+    );
+
+    expect(await screen.findByText('Kids Snacks Inc')).toBeInTheDocument();
+    expect(screen.getByText('Voomf')).toBeInTheDocument();
+    expect(screen.queryByText(/couldn’t personalize this page/i)).not.toBeInTheDocument();
+    const titles = screen
+      .getAllByRole('button', { name: /view details for/i })
+      .map((el) => el.getAttribute('aria-label'));
+    expect(titles[0]).toMatch(/yogurt pouches/i);
+    expect(titles[1]).toMatch(/crib mattress/i);
   });
 
   it('toggles Consumer and searches crib without FDA classification or status', async () => {

@@ -28,6 +28,7 @@ import {
   resultRange,
 } from './lib/pagination.js';
 import { applyRanking } from './lib/rankResults.js';
+import { interleaveBySource, rankByPersonaBio } from './lib/personaMatch.js';
 import { scrollToResultsTop } from './lib/scroll.js';
 
 export default function App() {
@@ -102,9 +103,9 @@ export default function App() {
     scrollToResultsTop();
   }, [loading, results, page]);
 
-  // Rank the current page when a persona is selected. Deselect restores
-  // keyword order. A missing key or failed POST keeps that order and
-  // shows a one-line notice — ranking must never blank the list.
+  // Rank / curate when a persona is selected. AI ranking is preferred.
+  // If the key is missing, we still order by the persona bio and alternate
+  // FDA / CPSC so the profile is never a no-op.
   useEffect(() => {
     if (!personaId) {
       rankGenerationRef.current += 1;
@@ -126,6 +127,7 @@ export default function App() {
     rankGenerationRef.current = generation;
     setPersonaRanking(true);
     setPersonaFallback(false);
+    const persona = personas.find((item) => item.id === personaId);
 
     rankRecallsForPersona({
       personaId,
@@ -143,14 +145,23 @@ export default function App() {
     }).then((data) => {
       if (generation !== rankGenerationRef.current) return;
       setPersonaRanking(false);
-      if (data?.fallback || !Array.isArray(data?.ranked)) {
+      const aiRanked =
+        !data?.fallback && Array.isArray(data?.ranked) ? data.ranked : null;
+      if (aiRanked) {
+        const applied = applyRanking(keywordResults, aiRanked);
+        setResults(interleaveBySource(applied.results));
+        setWhyById(applied.whyById);
+        setPersonaFallback(false);
+        return;
+      }
+      if (!persona) {
         setPersonaFallback(true);
-        setResults(keywordResults);
+        setResults(interleaveBySource(keywordResults));
         setWhyById({});
         return;
       }
-      const applied = applyRanking(keywordResults, data.ranked);
-      setResults(applied.results);
+      const applied = rankByPersonaBio(keywordResults, persona);
+      setResults(interleaveBySource(applied.results));
       setWhyById(applied.whyById);
       setPersonaFallback(false);
     });
@@ -160,6 +171,7 @@ export default function App() {
     };
   }, [
     personaId,
+    personas,
     keywordResults,
     hasSearched,
     activeQuery,
@@ -288,6 +300,27 @@ export default function App() {
     fetchResults(activeQuery, filters, clamped, pageSize);
   }
 
+  function handlePersonaSelect(nextId) {
+    const id = typeof nextId === 'string' ? nextId : '';
+    if (!id) {
+      setPersonaId('');
+      if (!activeQuery) {
+        setHasSearched(false);
+        setKeywordResults([]);
+        setResults([]);
+        setTotal(0);
+        setWhyById({});
+      }
+      return;
+    }
+
+    setPersonaId(id);
+    setSource('all');
+    setHasSearched(true);
+    setPage(1);
+    fetchResults(activeQuery, filters, 1, pageSize, 'all');
+  }
+
   function handleSourceChange(nextSource) {
     setSource(nextSource);
     setPage(1);
@@ -395,7 +428,7 @@ export default function App() {
             <PersonaCards
               personas={personas}
               selectedId={personaId}
-              onSelect={setPersonaId}
+              onSelect={handlePersonaSelect}
             />
           )}
 
@@ -403,7 +436,7 @@ export default function App() {
             <div className="results-top-sentinel" data-results-top />
           ) : null}
           {hasSearched && personaRanking ? (
-            <StatusMessage>Reordering for your persona…</StatusMessage>
+            <StatusMessage>Finding recalls for your profile…</StatusMessage>
           ) : null}
           {hasSearched && personaFallback ? (
             <StatusMessage tone="notice">

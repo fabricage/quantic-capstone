@@ -9,8 +9,8 @@ export default function PersonaCards({ personas = [], selectedId = '', onSelect 
     <section className="persona-cards" aria-label="Personas">
       <h2 className="persona-cards-title">Who is this for?</h2>
       <p className="persona-cards-lede">
-        Optional. We reorder this page for the selected persona and add a one-line why
-        on each card. Without a ranking key, keyword order stays put.
+        Pick the profile that sounds most like you. We list recent FDA food and
+        CPSC consumer-product recalls that match that bio, alternating sources.
       </p>
       <ul className="persona-card-list">
         {personas.map((persona) => {

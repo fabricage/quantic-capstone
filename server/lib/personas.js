@@ -3,7 +3,7 @@
  * Purpose: Four synthetic household presets. No PII, no sign-up.
  *
  * attributes stay server-side for the ranking prompt. The public list
- * only exposes id, label, and description.
+ * exposes id, label, description, and keywords (for bio matching in the UI).
  */
 
 const PERSONAS = [
@@ -18,6 +18,20 @@ const PERSONAS = [
       notes:
         'Prioritize infant formula, dairy, lunchbox foods, and allergens in products marketed to children.',
     },
+    keywords: [
+      'formula',
+      'infant',
+      'lunchbox',
+      'snack',
+      'yogurt',
+      'milk',
+      'kids',
+      'children',
+      'crib',
+      'stroller',
+      'toy',
+      'allergen',
+    ],
   },
   {
     id: 'renter-twenties',
@@ -30,6 +44,17 @@ const PERSONAS = [
       notes:
         'Prioritize ready-to-eat meals, frozen foods, coffee drinks, and inexpensive staples.',
     },
+    keywords: [
+      'coffee',
+      'convenience',
+      'frozen',
+      'meal',
+      'budget',
+      'grocery',
+      'battery',
+      'charger',
+      'heater',
+    ],
   },
   {
     id: 'retiree-meds',
@@ -42,6 +67,16 @@ const PERSONAS = [
       notes:
         'Prioritize dietary supplements, medical foods, low-sodium products, and pharmacy-adjacent items.',
     },
+    keywords: [
+      'supplement',
+      'vitamin',
+      'medical',
+      'sodium',
+      'pharmacy',
+      'diet',
+      'walker',
+      'blood',
+    ],
   },
   {
     id: 'allergy-household',
@@ -54,6 +89,18 @@ const PERSONAS = [
       notes:
         'Prioritize undeclared peanut, tree nut, milk, egg, sesame, soy, wheat, and cross-contact recalls.',
     },
+    keywords: [
+      'allergen',
+      'undeclared',
+      'peanut',
+      'nut',
+      'milk',
+      'egg',
+      'sesame',
+      'soy',
+      'wheat',
+      'cross-contact',
+    ],
   },
 ];
 
@@ -63,5 +110,10 @@ export function getPersonaById(id) {
 }
 
 export function listPersonas() {
-  return PERSONAS.map(({ id, label, description }) => ({ id, label, description }));
+  return PERSONAS.map(({ id, label, description, keywords }) => ({
+    id,
+    label,
+    description,
+    keywords,
+  }));
 }
