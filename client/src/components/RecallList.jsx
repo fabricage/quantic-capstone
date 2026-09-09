@@ -27,6 +27,7 @@ export default function RecallList({
   onSelect,
   isSaved,
   onToggleSave,
+  whyById = {},
 }) {
   if (loading) {
     return <StatusMessage>Loading recalls…</StatusMessage>;
@@ -76,6 +77,7 @@ export default function RecallList({
               onSelect={onSelect}
               saved={Boolean(isSaved?.(recall.id))}
               onToggleSave={onToggleSave}
+              why={whyById?.[recall.id] ?? ''}
             />
           </li>
         ))}

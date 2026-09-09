@@ -41,6 +41,11 @@ describe('RecallCard', () => {
     expect(screen.getByText('2024-01-15')).toBeInTheDocument();
   });
 
+  it('shows an optional one-line why under the reason', () => {
+    render(<RecallCard recall={sampleRecall} why="Often packed in a kids lunch." />);
+    expect(screen.getByText('Often packed in a kids lunch.')).toBeInTheDocument();
+  });
+
   it('toggles save without opening detail', async () => {
     const user = userEvent.setup();
     const onSelect = vi.fn();

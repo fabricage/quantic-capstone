@@ -1,9 +1,9 @@
 /**
  * App.jsx
- * Purpose: Search, filters, detail, pagination, bookmarks, chips, and persona cards.
+ * Purpose: Search, filters, detail, pagination, bookmarks, chips, and persona ranking.
  */
 import { useEffect, useRef, useState } from 'react';
-import { searchRecalls, fetchPersonas } from './api.js';
+import { fetchPersonas, rankRecallsForPersona, searchRecalls } from './api.js';
 import FilterBar from './components/FilterBar.jsx';
 import Pagination from './components/Pagination.jsx';
 import PersonaCards from './components/PersonaCards.jsx';
@@ -22,6 +22,7 @@ import {
   pageToSkip,
   resultRange,
 } from './lib/pagination.js';
+import { applyRanking } from './lib/rankResults.js';
 import { scrollToResultsTop } from './lib/scroll.js';
 
 export default function App() {
@@ -42,7 +43,14 @@ export default function App() {
   const [hasSearched, setHasSearched] = useState(false);
   const [personas, setPersonas] = useState([]);
   const [personaId, setPersonaId] = useState('');
+  // Keyword order for the current page. Ranking reorders `results` but we
+  // keep this copy so deselect / fallback can restore FDA order.
+  const [keywordResults, setKeywordResults] = useState([]);
+  const [whyById, setWhyById] = useState({});
+  const [personaRanking, setPersonaRanking] = useState(false);
+  const [personaFallback, setPersonaFallback] = useState(false);
   const pendingScrollRef = useRef(false);
+  const rankGenerationRef = useRef(0);
 
   useEffect(() => {
     fetchPersonas()
@@ -65,6 +73,74 @@ export default function App() {
     pendingScrollRef.current = false;
     scrollToResultsTop();
   }, [loading, results, page]);
+
+  // Rank the current page when a persona is selected. Deselect restores
+  // keyword order. A missing key or failed POST keeps that order and
+  // shows a one-line notice — ranking must never blank the list.
+  useEffect(() => {
+    if (!personaId) {
+      rankGenerationRef.current += 1;
+      setResults(keywordResults);
+      setWhyById({});
+      setPersonaFallback(false);
+      setPersonaRanking(false);
+      return;
+    }
+
+    if (!hasSearched || keywordResults.length === 0) {
+      setWhyById({});
+      setPersonaFallback(false);
+      setPersonaRanking(false);
+      return;
+    }
+
+    const generation = rankGenerationRef.current + 1;
+    rankGenerationRef.current = generation;
+    setPersonaRanking(true);
+    setPersonaFallback(false);
+
+    rankRecallsForPersona({
+      personaId,
+      recalls: keywordResults,
+      query: {
+        q: activeQuery,
+        classification: filters.classification,
+        status: filters.status,
+        dateFrom: filters.dateFrom,
+        dateTo: filters.dateTo,
+        page,
+        location: '',
+        source: 'food',
+      },
+    }).then((data) => {
+      if (generation !== rankGenerationRef.current) return;
+      setPersonaRanking(false);
+      if (data?.fallback || !Array.isArray(data?.ranked)) {
+        setPersonaFallback(true);
+        setResults(keywordResults);
+        setWhyById({});
+        return;
+      }
+      const applied = applyRanking(keywordResults, data.ranked);
+      setResults(applied.results);
+      setWhyById(applied.whyById);
+      setPersonaFallback(false);
+    });
+
+    return () => {
+      rankGenerationRef.current += 1;
+    };
+  }, [
+    personaId,
+    keywordResults,
+    hasSearched,
+    activeQuery,
+    filters.classification,
+    filters.status,
+    filters.dateFrom,
+    filters.dateTo,
+    page,
+  ]);
 
   async function fetchResults(trimmed, nextFilters, nextPage = 1, nextSize = pageSize) {
     if (isInvalidDateRange(nextFilters.dateFrom, nextFilters.dateTo)) {
@@ -101,12 +177,19 @@ export default function App() {
       }
       setPage(clamped);
       setPageSize(size);
-      setResults(Array.isArray(data.results) ? data.results : []);
+      const nextResults = Array.isArray(data.results) ? data.results : [];
+      setKeywordResults(nextResults);
+      setResults(nextResults);
+      setWhyById({});
+      setPersonaFallback(false);
       setTotal(data.total ?? totalCount);
       return true;
     } catch {
       setSearchFailed(true);
+      setKeywordResults([]);
       setResults([]);
+      setWhyById({});
+      setPersonaFallback(false);
       setTotal(0);
       return false;
     } finally {
@@ -237,6 +320,14 @@ export default function App() {
             onSelect={setPersonaId}
           />
           <div className="results-top-sentinel" data-results-top />
+          {personaRanking ? (
+            <p className="status-message">Reordering for your persona…</p>
+          ) : null}
+          {personaFallback ? (
+            <p className="status-message status-message--notice" role="status">
+              We couldn’t personalize this page. Showing keyword order.
+            </p>
+          ) : null}
           <RecallList
             loading={loading}
             searchFailed={searchFailed}
@@ -252,6 +343,7 @@ export default function App() {
             onSelect={handleSelect}
             isSaved={isSaved}
             onToggleSave={toggleSave}
+            whyById={whyById}
           />
           {hasSearched && !loading && !searchFailed ? (
             <Pagination

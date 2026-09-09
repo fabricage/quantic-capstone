@@ -1,6 +1,6 @@
 /**
  * App.test.jsx
- * Purpose: Brand, BFF search, filters, detail, pagination, and recent chips.
+ * Purpose: Brand, BFF search, filters, detail, pagination, chips, and persona ranking.
  */
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -233,5 +233,142 @@ describe('App', () => {
     expect(await screen.findByText('Formula Co')).toBeInTheDocument();
     const urls = fetchMock.mock.calls.map((call) => String(call[0]));
     expect(urls.filter((url) => url.includes('q=formula')).length).toBeGreaterThanOrEqual(2);
+  });
+
+  const parentPersona = {
+    id: 'parent-young-kids',
+    label: 'Parent with young kids',
+    description: 'Formula, lunchbox snacks, and foods kids eat often.',
+  };
+
+  const milkResults = [
+    {
+      id: 'F-milk-1',
+      firm: 'Dairy Co',
+      product: 'Whole milk',
+      reason: 'Undeclared allergen',
+      classification: 'Class II',
+      recallDate: '20240110',
+      source: 'food',
+      imageUrl: '',
+      imageAlt: '',
+    },
+    {
+      id: 'F-milk-2',
+      firm: 'Kids Snacks Inc',
+      product: 'Yogurt pouches',
+      reason: 'Possible contamination',
+      classification: 'Class I',
+      recallDate: '20240112',
+      source: 'food',
+      imageUrl: '',
+      imageAlt: '',
+    },
+  ];
+
+  it('ranks the current page and shows why-lines when a persona is selected', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn().mockImplementation((url) => {
+      const href = String(url);
+      if (href.includes('/api/personas')) {
+        return Promise.resolve({ ok: true, json: async () => ({ personas: [parentPersona] }) });
+      }
+      if (href.includes('/api/persona-rank')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            fallback: false,
+            ranked: [
+              { id: 'F-milk-2', relevance: 5, why: 'Kids often eat yogurt pouches.' },
+              { id: 'F-milk-1', relevance: 2, why: 'Less common in a lunchbox.' },
+            ],
+          }),
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ total: 2, source: 'food', results: milkResults }),
+      });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<App />);
+    await user.type(screen.getByRole('searchbox'), 'milk');
+    await user.click(
+      within(screen.getByRole('searchbox').closest('form')).getByRole('button', {
+        name: /search/i,
+      }),
+    );
+    expect(await screen.findByText('Dairy Co')).toBeInTheDocument();
+    const cardTitles = () =>
+      screen
+        .getAllByRole('button', { name: /view details for/i })
+        .map((el) => el.getAttribute('aria-label'));
+    expect(cardTitles()[0]).toMatch(/whole milk/i);
+
+    await user.click(screen.getByRole('button', { name: /parent with young kids/i }));
+
+    expect(await screen.findByText('Kids often eat yogurt pouches.')).toBeInTheDocument();
+    expect(screen.getByText('Less common in a lunchbox.')).toBeInTheDocument();
+    expect(cardTitles()[0]).toMatch(/yogurt pouches/i);
+
+    const rankCall = fetchMock.mock.calls.find((call) => String(call[0]).includes('/api/persona-rank'));
+    expect(rankCall).toBeTruthy();
+    expect(rankCall[1].method).toBe('POST');
+    const body = JSON.parse(rankCall[1].body);
+    expect(body.personaId).toBe('parent-young-kids');
+    expect(body.recalls.map((r) => r.id)).toEqual(['F-milk-1', 'F-milk-2']);
+    expect(body.query).toMatchObject({
+      q: 'milk',
+      classification: '',
+      status: '',
+      dateFrom: '',
+      dateTo: '',
+      page: 1,
+      location: '',
+      source: 'food',
+    });
+
+    await user.click(screen.getByRole('button', { name: /parent with young kids/i }));
+    await waitFor(() => {
+      expect(screen.queryByText('Kids often eat yogurt pouches.')).not.toBeInTheDocument();
+    });
+    expect(cardTitles()[0]).toMatch(/whole milk/i);
+  });
+
+  it('keeps keyword order and shows a fallback notice when ranking fails', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn().mockImplementation((url) => {
+      const href = String(url);
+      if (href.includes('/api/personas')) {
+        return Promise.resolve({ ok: true, json: async () => ({ personas: [parentPersona] }) });
+      }
+      if (href.includes('/api/persona-rank')) {
+        return Promise.resolve({ ok: true, json: async () => ({ fallback: true }) });
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ total: 2, source: 'food', results: milkResults }),
+      });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<App />);
+    await user.type(screen.getByRole('searchbox'), 'milk');
+    await user.click(
+      within(screen.getByRole('searchbox').closest('form')).getByRole('button', {
+        name: /search/i,
+      }),
+    );
+    expect(await screen.findByText('Dairy Co')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /parent with young kids/i }));
+
+    expect(await screen.findByText(/couldn’t personalize this page/i)).toBeInTheDocument();
+    const titles = screen
+      .getAllByRole('button', { name: /view details for/i })
+      .map((el) => el.getAttribute('aria-label'));
+    expect(titles[0]).toMatch(/whole milk/i);
+    expect(screen.queryByText(/kids often eat/i)).not.toBeInTheDocument();
   });
 });
