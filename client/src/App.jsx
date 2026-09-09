@@ -1,7 +1,7 @@
 /**
  * App.jsx
  * Purpose: Browse-first home — company chips on top, then the paged latest
- * list with search, filters, detail, pagination, and bookmarks.
+ * list with search, filters, detail, pagination, bookmarks, and a static FAQ.
  */
 import { useEffect, useRef, useState } from 'react';
 import { fetchSuggestedSearches, searchRecalls } from './api.js';
@@ -9,6 +9,7 @@ import FilterBar from './components/FilterBar.jsx';
 import Pagination from './components/Pagination.jsx';
 import RecentSearchChips from './components/RecentSearchChips.jsx';
 import RecallDetail from './components/RecallDetail.jsx';
+import RecallFaq from './components/RecallFaq.jsx';
 import RecallList from './components/RecallList.jsx';
 import SavedRecalls from './components/SavedRecalls.jsx';
 import SearchBar from './components/SearchBar.jsx';
@@ -384,6 +385,10 @@ export default function App() {
           </section>
         </>
       )}
+
+      {/* Always last: a static glossary so class / status / CPSC fields
+          stay explained on search, saved, and detail. */}
+      <RecallFaq />
     </div>
   );
 }

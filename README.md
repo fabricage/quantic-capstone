@@ -30,6 +30,7 @@ Hostnames are **not** hardcoded in app logic. The static build uses `VITE_API_BA
 - "Companies with the most recalls" chips at the top of home (monogram, count, 1 month – 2 year lookback) that switch source and search
 - Browse-first home: the newest FDA + CPSC recalls load as a paged list before anyone types
 - Persona ranking API (`/api/personas`, `/api/persona-rank`) kept server-side as an experiment; not shown in the UI
+- Static FAQ at the bottom of every view: FDA Class I / II / III, Ongoing / Completed / Terminated, and why CPSC cards have neither
 - Predictable empty / error copy and a React error boundary (no blank screens, no raw upstream dumps)
 
 ## Stack
